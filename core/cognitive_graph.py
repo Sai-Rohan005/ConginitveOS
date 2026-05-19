@@ -34,7 +34,7 @@ from typing import (
 # IMPORT DOMAINS
 # ============================================================
 
-from domains.software_engineering.software_engineering_domain import (
+from domains.softwareEngineering.software_engineering_domain import (
     SoftwareEngineeringDomain,
 )
 

@@ -46,23 +46,23 @@ from typing import (
 # IMPORT AGENTS
 # ============================================================
 
-from domains.software_engineering.agents.architecture_agent import (
+from domains.softwareEngineering.agents.architecture_agent import (
     ArchitectureAgent,
 )
 
-from domains.software_engineering.agents.code_agent import (
+from domains.softwareEngineering.agents.code_agent import (
     CodeAgent,
 )
 
-from domains.software_engineering.agents.debug_agent import (
+from domains.softwareEngineering.agents.debug_agent import (
     DebugAgent,
 )
 
-from domains.software_engineering.agents.reflection_agent import (
+from domains.softwareEngineering.agents.reflection_agent import (
     ReflectionAgent,
 )
 
-from domains.software_engineering.agents.aggregator_agent import (
+from domains.softwareEngineering.agents.aggregator_agent import (
     AggregatorAgent,
 )
 
@@ -70,7 +70,7 @@ from domains.software_engineering.agents.aggregator_agent import (
 # IMPORT TOOL EXECUTOR
 # ============================================================
 
-from domains.software_engineering.tools.tool_executor import (
+from domains.softwareEngineering.tools.tool_executor import (
     ToolExecutor,
 )
 
@@ -78,7 +78,7 @@ from domains.software_engineering.tools.tool_executor import (
 # IMPORT MEMORY
 # ============================================================
 
-from domains.software_engineering.memory.shared_memory import (
+from domains.softwareEngineering.memory.shared_memory import (
 
     SharedMemory,
 
@@ -89,7 +89,7 @@ from domains.software_engineering.memory.shared_memory import (
 # IMPORT SUPERVISOR TYPES
 # ============================================================
 
-from domains.software_engineering.supervisor.software_supervisor import (
+from domains.softwareEngineering.supervisor.softwareEngineeringSupervisor import (
     WorkflowStep,
 )
 
@@ -227,6 +227,7 @@ class WorkflowExecutor:
                     step,
                     memory,
                 )
+                
 
             # =================================================
             # REFLECTION LOOP
@@ -412,6 +413,8 @@ Traceback:
                         {},
                     ),
             }
+            print(f"\nEXECUTING AGENT: {agent_name}")
+            print(f"TASK: {step.task}")
 
             # =================================================
             # EXECUTE AGENT
@@ -420,7 +423,8 @@ Traceback:
             result = await agent.run(
                 context
             )
-
+            print("\nAGENT RESULT:\n")
+            print(result)
             # =================================================
             # STORE OUTPUT
             # =================================================
@@ -704,7 +708,8 @@ Traceback:
                     aggregation_input
                 )
             )
-
+            print("\nAGENT OUTPUTS SENT TO AGGREGATOR:\n")
+            print(memory.agent_outputs)
             return str(result)
 
         except Exception:

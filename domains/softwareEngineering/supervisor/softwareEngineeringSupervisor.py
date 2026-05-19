@@ -11,7 +11,6 @@ Responsibilities:
 - manage orchestration strategy
 - prepare runtime execution graph
 
-This is NOT the executor.
 This is orchestration intelligence.
 """
 
@@ -19,6 +18,7 @@ from __future__ import annotations
 
 import os
 import traceback
+import dotenv
 
 from dataclasses import (
     dataclass,
@@ -44,6 +44,11 @@ from langchain_core.output_parsers import (
     JsonOutputParser,
 )
 
+dotenv.load_dotenv()
+
+api_key = os.getenv(
+    "GOOGLE_API_KEY"
+)
 
 # ============================================================
 # EXECUTION STEP
@@ -109,12 +114,6 @@ class SoftwareSupervisor:
 
     """
     CognitiveOS Software Supervisor
-
-    Responsibilities:
-    - orchestration planning
-    - agent assignment
-    - workflow generation
-    - execution coordination
     """
 
     def __init__(self):
@@ -125,7 +124,11 @@ class SoftwareSupervisor:
         )
 
         self.llm = ChatGoogleGenerativeAI(
+
             model=self.model,
+
+            google_api_key=api_key,
+
             temperature=0.1,
         )
 
@@ -138,6 +141,7 @@ class SoftwareSupervisor:
         self.prompt = (
             ChatPromptTemplate.from_messages(
                 [
+
                     (
                         "system",
                         self._system_prompt(),
@@ -157,16 +161,6 @@ Planner Output:
             )
         )
 
-        # ====================================================
-        # CHAIN
-        # ====================================================
-
-        self.chain = (
-            self.prompt
-            | self.llm
-            | self.parser
-        )
-
     # ========================================================
     # MAIN EXECUTION
     # ========================================================
@@ -178,7 +172,15 @@ Planner Output:
 
         try:
 
-            response = await self.chain.ainvoke(
+            # ====================================================
+            # RAW LLM CALL
+            # ====================================================
+
+            raw_response = await (
+                self.prompt
+                | self.llm
+            ).ainvoke(
+
                 {
 
                     "query":
@@ -191,9 +193,92 @@ Planner Output:
                 }
             )
 
-            # ================================================
+            # ====================================================
+            # EXTRACT RESPONSE TEXT
+            # ====================================================
+
+            response_text = ""
+
+            if hasattr(
+                raw_response,
+                "content"
+            ):
+
+                response_text = (
+                    raw_response.content
+                )
+
+            else:
+
+                response_text = str(
+                    raw_response
+                )
+
+            # ====================================================
+            # RAW RESPONSE DEBUG
+            # ====================================================
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "SUPERVISOR RAW RESPONSE"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            print(
+                response_text
+            )
+
+            # ====================================================
+            # CLEAN JSON
+            # ====================================================
+
+            response_text = (
+                response_text
+                .replace(
+                    "```json",
+                    "",
+                )
+                .replace(
+                    "```",
+                    "",
+                )
+                .strip()
+            )
+
+            print(
+                "\nCLEANED RESPONSE:\n"
+            )
+
+            print(
+                response_text
+            )
+
+            # ====================================================
+            # PARSE JSON
+            # ====================================================
+
+            response = self.parser.parse(
+                response_text
+            )
+
+            print(
+                "\nPARSED RESPONSE:\n"
+            )
+
+            print(
+                response
+            )
+
+            # ====================================================
             # SAFE DEFAULTS
-            # ================================================
+            # ====================================================
 
             workflow = response.get(
                 "workflow_steps",
@@ -221,9 +306,9 @@ Planner Output:
 
             parsed_steps = []
 
-            # ================================================
+            # ====================================================
             # PARSE WORKFLOW STEPS
-            # ================================================
+            # ====================================================
 
             if isinstance(
                 workflow,
@@ -236,8 +321,7 @@ Planner Output:
 
                     try:
 
-                        parsed_steps.append(
-
+                        workflow_step = (
                             WorkflowStep(
 
                                 step_id=step.get(
@@ -272,12 +356,54 @@ Planner Output:
                             )
                         )
 
-                    except Exception:
+                        parsed_steps.append(
+                            workflow_step
+                        )
+
+                        print(
+                            "\nPARSED STEP:\n"
+                        )
+
+                        print(
+                            workflow_step
+                        )
+
+                    except Exception as e:
+
+                        print(
+                            "\nSTEP PARSE FAILED\n"
+                        )
+
+                        print(
+                            str(e)
+                        )
+
                         continue
 
-            # ================================================
+            # ====================================================
+            # FINAL DEBUG
+            # ====================================================
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "FINAL PARSED WORKFLOW"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            for step in parsed_steps:
+
+                print(step)
+
+            # ====================================================
             # UPDATE STATE
-            # ================================================
+            # ====================================================
 
             state.workflow_steps = (
                 parsed_steps
@@ -299,17 +425,39 @@ Planner Output:
 
             return state
 
-        # ====================================================
+        # ========================================================
         # ERROR HANDLING
-        # ====================================================
+        # ========================================================
 
         except Exception as e:
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "SUPERVISOR FAILED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            print(
+                str(e)
+            )
+
+            print(
+                traceback.format_exc()
+            )
 
             state.output = {
 
                 "success": False,
 
-                "error": str(e),
+                "error":
+                    str(e),
 
                 "traceback":
                     traceback.format_exc(),
@@ -366,7 +514,7 @@ JSON FORMAT:
 
   "workflow_steps": [
 
-    {
+    {{
       "step_id": 1,
 
       "agent": "architecture_agent",
@@ -380,9 +528,9 @@ JSON FORMAT:
 
       "expected_output":
         "Architecture specification"
-    },
+    }},
 
-    {
+    {{
       "step_id": 2,
 
       "agent": "code_agent",
@@ -396,7 +544,23 @@ JSON FORMAT:
 
       "expected_output":
         "Production-ready backend code"
-    }
+    }},
+
+    {{
+      "step_id": 3,
+
+      "agent": "debug_agent",
+
+      "task":
+        "Validate backend implementation",
+
+      "dependencies": [2],
+
+      "parallelizable": false,
+
+      "expected_output":
+        "Debugging and validation report"
+    }}
 
   ]
 }}

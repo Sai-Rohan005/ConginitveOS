@@ -15,6 +15,7 @@ from dataclasses import (
     field,
 )
 
+import dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -27,7 +28,8 @@ from langchain_core.output_parsers import (
     JsonOutputParser,
 )
 
-
+dotenv.load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
 # ============================================================
 # EXECUTION STEP
 # ============================================================
@@ -104,6 +106,7 @@ class PlannerAgent:
 
         self.llm = ChatGoogleGenerativeAI(
             model=self.model,
+            google_api_key=api_key,
             temperature=0.1,
         )
 

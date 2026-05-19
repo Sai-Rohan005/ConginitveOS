@@ -27,6 +27,7 @@ Final Response
 
 from __future__ import annotations
 
+import os
 import traceback
 
 from dataclasses import (
@@ -40,11 +41,13 @@ from typing import (
     Optional,
 )
 
+import dotenv
+
 # ============================================================
 # IMPORT PLANNER
 # ============================================================
 
-from domains.software_engineering.planner.planner_agent import (
+from domains.softwareEngineering.planner.planner_agent import (
 
     PlannerAgent,
 
@@ -55,7 +58,7 @@ from domains.software_engineering.planner.planner_agent import (
 # IMPORT SUPERVISOR
 # ============================================================
 
-from domains.software_engineering.supervisor.software_supervisor import (
+from domains.softwareEngineering.supervisor.softwareEngineeringSupervisor import (
 
     SoftwareSupervisor,
 
@@ -66,7 +69,7 @@ from domains.software_engineering.supervisor.software_supervisor import (
 # IMPORT EXECUTOR
 # ============================================================
 
-from domains.software_engineering.executor.workflow_executor import (
+from domains.softwareEngineering.executor.workflow_executor import (
 
     WorkflowExecutor,
 )
@@ -214,7 +217,11 @@ class SoftwareEngineeringDomain:
             print(
                 "✓ Workflow Generated"
             )
+            print("\nWORKFLOW STEPS:\n")
 
+            for step in supervisor_result.workflow_steps:
+
+                print(step)
             # =================================================
             # STEP 3 — EXECUTION
             # =================================================

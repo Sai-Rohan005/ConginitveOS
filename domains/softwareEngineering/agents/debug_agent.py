@@ -37,6 +37,7 @@ from dataclasses import (
     field,
 )
 
+import dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -49,7 +50,8 @@ from langchain_core.output_parsers import (
     JsonOutputParser,
 )
 
-
+dotenv.load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
 # ============================================================
 # STATE
 # ============================================================
@@ -98,7 +100,7 @@ class DebugAgent:
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
-
+            google_api_key=api_key, 
             temperature=0.1,
         )
 
@@ -347,7 +349,7 @@ Return ONLY valid JSON.
 
 JSON FORMAT:
 
-{
+{{
   "bug_analysis": [
 
     "Potential websocket connection leak",
@@ -400,5 +402,5 @@ JSON FORMAT:
 
   "reasoning":
     "The implementation is scalable but lacks observability and security hardening."
-}
+}}
 """

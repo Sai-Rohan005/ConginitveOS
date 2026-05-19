@@ -37,7 +37,7 @@ from dataclasses import (
     dataclass,
     field,
 )
-
+import dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -45,8 +45,8 @@ from langchain_google_genai import (
 from langchain_core.prompts import (
     ChatPromptTemplate,
 )
-
-
+dotenv.load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
 # ============================================================
 # STATE
 # ============================================================
@@ -88,13 +88,14 @@ class AggregatorAgent:
 
         self.model = os.getenv(
             "GOOGLE_MODEL",
+            
             "gemini-2.0-flash",
         )
 
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
-
+            google_api_key=api_key,
             temperature=0.2,
         )
 

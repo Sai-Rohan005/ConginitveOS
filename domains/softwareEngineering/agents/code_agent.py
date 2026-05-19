@@ -36,6 +36,7 @@ from dataclasses import (
     field,
 )
 
+import dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -47,7 +48,8 @@ from langchain_core.prompts import (
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
-
+dotenv.load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
 
 # ============================================================
 # STATE
@@ -102,7 +104,7 @@ class CodeAgent:
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
-
+            google_api_key=api_key,
             temperature=0.2,
         )
 
@@ -330,7 +332,7 @@ Return ONLY valid JSON.
 
 JSON FORMAT:
 
-{
+{{
   "implementation_type":
     "backend_service",
 
@@ -412,5 +414,5 @@ JSON FORMAT:
 
   "reasoning":
     "FastAPI chosen for async scalability and modular backend architecture."
-}
+}}
 """

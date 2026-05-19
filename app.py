@@ -19,6 +19,31 @@ streamlit run app.py
 """
 
 from __future__ import annotations
+import os
+import warnings
+import logging
+
+os.environ[
+    "TRANSFORMERS_VERBOSITY"
+] = "error"
+
+os.environ[
+    "TOKENIZERS_PARALLELISM"
+] = "false"
+
+warnings.filterwarnings("ignore")
+
+logging.getLogger(
+    "transformers"
+).setLevel(logging.ERROR)
+
+logging.getLogger(
+    "torch"
+).setLevel(logging.ERROR)
+
+logging.getLogger(
+    "sentence_transformers"
+).setLevel(logging.ERROR)
 
 import asyncio
 import streamlit as st

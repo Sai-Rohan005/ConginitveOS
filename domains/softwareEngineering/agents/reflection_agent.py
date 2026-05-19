@@ -44,6 +44,7 @@ from dataclasses import (
     field,
 )
 
+import dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -55,7 +56,8 @@ from langchain_core.prompts import (
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
-
+dotenv.load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
 # ============================================================
 # STATE
 # ============================================================
@@ -106,7 +108,7 @@ class ReflectionAgent:
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
-
+            google_api_key=api_key,
             temperature=0.1,
         )
 
@@ -366,7 +368,7 @@ Return ONLY valid JSON.
 
 JSON FORMAT:
 
-{
+{{
   "overall_quality":
     "medium",
 
@@ -447,5 +449,5 @@ JSON FORMAT:
 
   "reasoning":
     "The system architecture is scalable but lacks production-grade security and observability."
-}
+}}
 """

@@ -1,0 +1,75 @@
+# ============================================================
+# CognitiveOS - Requirements
+# ============================================================
+
+# Core LangChain Ecosystem
+langchain>=0.3.0
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langchain-google-genai>=2.0.0
+
+# Google Gemini SDK
+google-generativeai>=0.8.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Search Tools
+duckduckgo-search>=6.2.0
+
+# Validation / Typing
+pydantic>=2.8.0
+typing-extensions>=4.12.0
+
+# Async Support
+aiohttp>=3.10.0
+
+# Tokenization / Text Processing
+tiktoken>=0.7.0
+
+# Data Handling
+numpy>=1.26.0
+pandas>=2.2.0
+
+# Logging / Utilities
+rich>=13.7.0
+
+# Optional Vector DB Support
+faiss-cpu>=1.8.0
+
+# Optional Embeddings
+sentence-transformers>=3.0.0
+
+# Optional RAG / Document Parsing
+pypdf>=4.3.0
+
+# Optional Web APIs
+requests>=2.32.0
+
+# Retry / Resilience
+tenacity>=9.0.0
+
+# Serialization
+orjson>=3.10.0
+
+# Testing (Optional)
+pytest>=8.3.0
+pytest-asyncio>=0.23.0
+
+chromadb>=0.3.0
+sentence-transformers>=3.0.0
+
+streamlit>=1.20.0
+
+torch>=2.0.0
+torchvision>=0.15.0
+
+
+1. software_engineering_domain.py
+2. cognitive_graph.py
+3. runtime_state.py
+4. main.py
+5. tool integration into agents
+6. reflection retry loop
+7. UI execution visualization

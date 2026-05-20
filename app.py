@@ -1,17 +1,19 @@
 # app.py
 
 """
-CognitiveOS - Streamlit App
+CognitiveOS - Autonomous Runtime Dashboard
 ---------------------------------------------------------
 
 Responsibilities:
 - provide UI for CognitiveOS
-- execute cognitive workflows
 - visualize execution lifecycle
-- display agent outputs
-- show execution logs
-- display artifacts
-- render final response
+- display runtime cognition
+- render generated repositories
+- show execution timeline
+- display runtime validation
+- show patch history
+- render artifacts
+- display reflection insights
 
 Run:
 
@@ -19,9 +21,20 @@ streamlit run app.py
 """
 
 from __future__ import annotations
+
 import os
+import io
+import zipfile
+import asyncio
 import warnings
 import logging
+from datetime import datetime
+
+import streamlit as st
+
+# ============================================================
+# SILENCE WARNINGS
+# ============================================================
 
 os.environ[
     "TRANSFORMERS_VERBOSITY"
@@ -45,8 +58,9 @@ logging.getLogger(
     "sentence_transformers"
 ).setLevel(logging.ERROR)
 
-import asyncio
-import streamlit as st
+# ============================================================
+# IMPORT COGNITIVE GRAPH
+# ============================================================
 
 from core.cognitive_graph import (
     CognitiveGraph,
@@ -83,7 +97,7 @@ st.title(
 
 st.markdown(
     """
-Autonomous Cognitive Runtime System
+Autonomous Software Engineering Runtime
 """
 )
 
@@ -104,6 +118,26 @@ with st.sidebar:
     st.markdown("---")
 
     st.subheader(
+        "Execution Mode"
+    )
+
+    execution_mode = st.selectbox(
+
+        "Select Mode",
+
+        [
+
+            "Fast",
+
+            "Balanced",
+
+            "Autonomous Repair",
+        ],
+    )
+
+    st.markdown("---")
+
+    st.subheader(
         "Domains"
     )
 
@@ -119,12 +153,14 @@ with st.sidebar:
         "Execution History"
     )
 
-    st.write(
+    st.metric(
+
+        "Executions",
+
         len(
             st.session_state
             .execution_history
         ),
-        "executions"
     )
 
 # ============================================================
@@ -152,7 +188,9 @@ and websocket support.
 # ============================================================
 
 execute_button = st.button(
+
     "Execute CognitiveOS",
+
     use_container_width=True,
 )
 
@@ -171,13 +209,13 @@ if execute_button:
         st.stop()
 
     # ========================================================
-    # CREATE GRAPH
+    # GRAPH
     # ========================================================
 
     graph = CognitiveGraph()
 
     # ========================================================
-    # EXECUTION UI
+    # EXECUTION LIFECYCLE UI
     # ========================================================
 
     st.markdown("---")
@@ -186,19 +224,17 @@ if execute_button:
         "Execution Lifecycle"
     )
 
-    execution_container = st.container()
+    planner_status = st.empty()
 
-    with execution_container:
+    supervisor_status = st.empty()
 
-        planner_status = st.empty()
+    executor_status = st.empty()
 
-        supervisor_status = st.empty()
+    reflection_status = st.empty()
 
-        executor_status = st.empty()
+    aggregation_status = st.empty()
 
-        reflection_status = st.empty()
-
-        aggregation_status = st.empty()
+    runtime_status = st.empty()
 
     # ========================================================
     # EXECUTION FUNCTION
@@ -215,7 +251,7 @@ if execute_button:
         )
 
         executor_status.info(
-            "⚙️ Executor Waiting..."
+            "⚙️ Runtime Executor Starting..."
         )
 
         reflection_status.info(
@@ -224,6 +260,10 @@ if execute_button:
 
         aggregation_status.info(
             "📦 Aggregation Waiting..."
+        )
+
+        runtime_status.info(
+            "🚀 Runtime Waiting..."
         )
 
         # ====================================================
@@ -235,7 +275,7 @@ if execute_button:
         )
 
         # ====================================================
-        # UPDATE STATUS
+        # STATUS COMPLETE
         # ====================================================
 
         planner_status.success(
@@ -247,22 +287,28 @@ if execute_button:
         )
 
         executor_status.success(
-            "✓ Agent Execution Complete"
+            "✓ Runtime Execution Complete"
         )
 
         reflection_status.success(
-            "✓ Reflection Cycle Complete"
+            "✓ Reflection Complete"
         )
 
         aggregation_status.success(
-            "✓ Final Aggregation Complete"
+            "✓ Aggregation Complete"
+        )
+
+        runtime_status.success(
+            "✓ Runtime Validation Complete"
         )
 
         return result
 
     # ========================================================
-    # RUN EXECUTION
+    # EXECUTE
     # ========================================================
+
+    start_time = datetime.now()
 
     with st.spinner(
         "CognitiveOS Running..."
@@ -271,6 +317,12 @@ if execute_button:
         runtime_state = asyncio.run(
             run_execution()
         )
+
+    end_time = datetime.now()
+
+    total_execution_time = (
+        end_time - start_time
+    ).total_seconds()
 
     # ========================================================
     # STORE HISTORY
@@ -289,7 +341,15 @@ if execute_button:
     )
 
     # ========================================================
-    # FINAL OUTPUT
+    # EXECUTION RESULT
+    # ========================================================
+
+    execution_result = (
+        runtime_state.execution_result
+    )
+
+    # ========================================================
+    # FINAL RESPONSE
     # ========================================================
 
     st.markdown("---")
@@ -303,39 +363,295 @@ if execute_button:
     )
 
     # ========================================================
-    # EXECUTION DETAILS
+    # EXECUTION METRICS
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "Runtime Metrics"
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.metric(
+
+            "Execution Time",
+
+            f"{total_execution_time:.2f}s",
+        )
+
+    with col2:
+
+        st.metric(
+
+            "Artifacts",
+
+            len(
+                execution_result.get(
+                    "artifacts",
+                    [],
+                )
+            ),
+        )
+
+    with col3:
+
+        st.metric(
+
+            "Logs",
+
+            len(
+                execution_result.get(
+                    "execution_logs",
+                    [],
+                )
+            ),
+        )
+
+    with col4:
+
+        runtime_health = (
+            execution_result.get(
+                "runtime_health_score",
+                "medium",
+            )
+        )
+
+        st.metric(
+
+            "Runtime Health",
+
+            runtime_health,
+        )
+
+    # ========================================================
+    # EXECUTION TIMELINE
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "Execution Timeline"
+    )
+
+    timeline = execution_result.get(
+        "execution_timeline",
+        [],
+    )
+
+    if timeline:
+
+        for event in timeline:
+
+            event_type = event.get(
+                "event",
+                ""
+            )
+
+            if "failed" in event_type:
+
+                st.error(event)
+
+            elif "runtime_failure" in event_type:
+
+                st.warning(event)
+
+            elif "completed" in event_type:
+
+                st.success(event)
+
+            else:
+
+                st.info(event)
+
+    else:
+
+        st.info(
+            "No execution timeline available."
+        )
+
+    # ========================================================
+    # GENERATED FILES
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "Generated Repository"
+    )
+
+    generated_files = execution_result.get(
+        "generated_files",
+        [],
+    )
+
+    if generated_files:
+
+        for file in generated_files:
+
+            file_path = file.get(
+                "path",
+                "unknown.py"
+            )
+
+            content = file.get(
+                "content",
+                ""
+            )
+
+            language = "python"
+
+            if file_path.endswith(".json"):
+
+                language = "json"
+
+            elif file_path.endswith(".yml"):
+
+                language = "yaml"
+
+            elif file_path.endswith(".md"):
+
+                language = "markdown"
+
+            with st.expander(
+                file_path,
+                expanded=False,
+            ):
+
+                st.code(
+                    content,
+                    language=language,
+                )
+
+    else:
+
+        st.info(
+            "No generated files available."
+        )
+
+    # ========================================================
+    # WORKSPACE TREE
     # ========================================================
 
     st.markdown("---")
 
     with st.expander(
-        "Execution Metadata",
+        "Workspace Tree",
         expanded=False,
     ):
 
+        workspace_snapshot = (
+            execution_result.get(
+                "workspace_snapshot",
+                [],
+            )
+        )
+
         st.json(
-            runtime_state.metadata
+            workspace_snapshot
         )
 
     # ========================================================
-    # AGENT OUTPUTS
+    # RUNTIME VALIDATION
     # ========================================================
 
+    st.markdown("---")
+
     with st.expander(
-        "Agent Outputs",
+        "Runtime Validation",
         expanded=False,
     ):
 
-        st.json(
-            runtime_state.execution_result.get(
-                "agent_outputs",
+        runtime_validation = (
+            execution_result.get(
+                "runtime_validation",
                 {},
             )
         )
 
+        stdout = runtime_validation.get(
+            "stdout",
+            ""
+        )
+
+        stderr = runtime_validation.get(
+            "stderr",
+            ""
+        )
+
+        return_code = (
+            runtime_validation.get(
+                "return_code",
+                -1,
+            )
+        )
+
+        st.subheader(
+            "Return Code"
+        )
+
+        st.write(return_code)
+
+        st.subheader(
+            "STDOUT"
+        )
+
+        st.code(stdout)
+
+        st.subheader(
+            "STDERR"
+        )
+
+        if stderr:
+
+            st.error(stderr)
+
+        else:
+
+            st.success(
+                "No runtime errors detected."
+            )
+
+    # ========================================================
+    # PATCH HISTORY
+    # ========================================================
+
+    st.markdown("---")
+
+    with st.expander(
+        "Patch History",
+        expanded=False,
+    ):
+
+        patch_history = (
+            execution_result.get(
+                "patch_history",
+                [],
+            )
+        )
+
+        if patch_history:
+
+            for patch in patch_history:
+
+                st.warning(
+                    patch
+                )
+
+        else:
+
+            st.success(
+                "No patches applied."
+            )
+
     # ========================================================
     # ARTIFACTS
     # ========================================================
+
+    st.markdown("---")
 
     with st.expander(
         "Artifacts",
@@ -343,7 +659,7 @@ if execute_button:
     ):
 
         st.json(
-            runtime_state.execution_result.get(
+            execution_result.get(
                 "artifacts",
                 [],
             )
@@ -353,13 +669,15 @@ if execute_button:
     # EXECUTION LOGS
     # ========================================================
 
+    st.markdown("---")
+
     with st.expander(
         "Execution Logs",
         expanded=False,
     ):
 
         st.json(
-            runtime_state.execution_result.get(
+            execution_result.get(
                 "execution_logs",
                 [],
             )
@@ -369,16 +687,85 @@ if execute_button:
     # REFLECTION NOTES
     # ========================================================
 
+    st.markdown("---")
+
     with st.expander(
         "Reflection Notes",
         expanded=False,
     ):
 
         st.json(
-            runtime_state.execution_result.get(
+            execution_result.get(
                 "reflection_notes",
                 [],
             )
+        )
+
+    # ========================================================
+    # DOWNLOAD GENERATED REPOSITORY
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "Download Repository"
+    )
+
+    zip_buffer = io.BytesIO()
+
+    workspace_path = (
+        "workspace/current_project"
+    )
+
+    if os.path.exists(
+        workspace_path
+    ):
+
+        with zipfile.ZipFile(
+
+            zip_buffer,
+
+            "w",
+
+            zipfile.ZIP_DEFLATED,
+        ) as zip_file:
+
+            for root, dirs, files in os.walk(
+                workspace_path
+            ):
+
+                for file in files:
+
+                    file_path = os.path.join(
+                        root,
+                        file,
+                    )
+
+                    archive_name = os.path.relpath(
+                        file_path,
+                        workspace_path,
+                    )
+
+                    zip_file.write(
+                        file_path,
+                        archive_name,
+                    )
+
+        st.download_button(
+
+            label=
+                "⬇ Download Repository",
+
+            data=
+                zip_buffer.getvalue(),
+
+            file_name=
+                "cognitiveos_project.zip",
+
+            mime=
+                "application/zip",
+
+            use_container_width=True,
         )
 
 # ============================================================
@@ -388,5 +775,5 @@ if execute_button:
 st.markdown("---")
 
 st.caption(
-    "CognitiveOS • Autonomous Cognitive Runtime"
+    "CognitiveOS • Autonomous Software Engineering Runtime"
 )

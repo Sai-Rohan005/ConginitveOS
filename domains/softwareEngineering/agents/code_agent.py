@@ -1,23 +1,23 @@
 # domains/software_engineering/agents/code_agent.py
 
 """
-CognitiveOS - Code Agent
+CognitiveOS - Advanced Code Agent
 ---------------------------------------------------------
 
 Responsibilities:
-- generate production-ready code
-- implement backend systems
-- implement APIs
-- create services/modules
-- generate configs
-- generate scalable software components
-- follow architecture specifications
+- generate production-grade systems
+- create real project structures
+- generate executable codebases
+- write files into workspace
+- execute generated systems
+- validate runtime execution
+- create artifacts
+- collaborate using artifacts
 
 This agent acts like:
-- Senior Software Engineer
-- Backend Engineer
-- Full Stack Engineer
+- Senior Backend Engineer
 - Platform Engineer
+- Staff Software Engineer
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from dataclasses import (
 )
 
 import dotenv
+
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -48,8 +49,12 @@ from langchain_core.prompts import (
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
+
 dotenv.load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+
+api_key = os.getenv(
+    "GOOGLE_API_KEY"
+)
 
 # ============================================================
 # STATE
@@ -91,20 +96,24 @@ class CodeAgentState:
 class CodeAgent:
 
     """
-    Production-grade Code Generation Agent.
+    Advanced autonomous code generation agent.
     """
 
     def __init__(self):
 
         self.model = os.getenv(
+
             "GOOGLE_MODEL",
+
             "gemini-2.0-flash",
         )
 
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
+
             google_api_key=api_key,
+
             temperature=0.2,
         )
 
@@ -115,16 +124,22 @@ class CodeAgent:
         # ====================================================
 
         self.prompt = (
+
             ChatPromptTemplate.from_messages(
+
                 [
 
                     (
+
                         "system",
+
                         self._system_prompt(),
                     ),
 
                     (
+
                         "human",
+
                         """
 User Query:
 {query}
@@ -137,23 +152,13 @@ Architecture Context:
 
 Previous Outputs:
 {previous_outputs}
+
+Context Artifacts:
+{context_artifacts}
                         """,
                     ),
                 ]
             )
-        )
-
-        # ====================================================
-        # CHAIN
-        # ====================================================
-
-        self.chain = (
-
-            self.prompt
-
-            | self.llm
-
-            | self.parser
         )
 
     # ========================================================
@@ -167,7 +172,63 @@ Previous Outputs:
 
         try:
 
-            response = await self.chain.ainvoke(
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "CODE AGENT STARTED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            # =================================================
+            # TOOL EXECUTOR
+            # =================================================
+
+            tool_executor = context.get(
+                "tool_executor"
+            )
+
+            # =================================================
+            # ARTIFACT REASONING
+            # =================================================
+
+            context_artifacts = context.get(
+                "context_artifacts",
+                [],
+            )
+
+            architecture_artifacts = [
+
+                artifact
+
+                for artifact in context_artifacts
+
+                if (
+                    getattr(
+                        artifact,
+                        "artifact_type",
+                        "",
+                    )
+                    == "architecture"
+                )
+            ]
+
+            # =================================================
+            # LLM EXECUTION
+            # =================================================
+
+            raw_response = await (
+
+                self.prompt
+
+                | self.llm
+
+            ).ainvoke(
 
                 {
 
@@ -185,10 +246,7 @@ Previous Outputs:
 
                     "architecture_context":
                         str(
-                            context.get(
-                                "shared_context",
-                                {},
-                            )
+                            architecture_artifacts
                         ),
 
                     "previous_outputs":
@@ -198,15 +256,86 @@ Previous Outputs:
                                 {},
                             )
                         ),
+
+                    "context_artifacts":
+                        str(
+                            context_artifacts
+                        ),
                 }
             )
 
             # =================================================
-            # SAFE EXTRACTION
+            # EXTRACT TEXT
+            # =================================================
+
+            response_text = ""
+
+            if hasattr(
+                raw_response,
+                "content"
+            ):
+
+                response_text = (
+                    raw_response.content
+                )
+
+            else:
+
+                response_text = str(
+                    raw_response
+                )
+
+            print(
+                "\nRAW CODE RESPONSE:\n"
+            )
+
+            print(
+                response_text
+            )
+
+            # =================================================
+            # CLEAN JSON
+            # =================================================
+
+            response_text = (
+
+                response_text
+
+                .replace(
+                    "```json",
+                    "",
+                )
+
+                .replace(
+                    "```",
+                    "",
+                )
+
+                .strip()
+            )
+
+            # =================================================
+            # PARSE JSON
+            # =================================================
+
+            response = self.parser.parse(
+                response_text
+            )
+
+            print(
+                "\nPARSED CODE RESPONSE:\n"
+            )
+
+            print(response)
+
+            # =================================================
+            # EXTRACTION
             # =================================================
 
             implementation_type = response.get(
+
                 "implementation_type",
+
                 "backend_service",
             )
 
@@ -240,6 +369,259 @@ Previous Outputs:
                 "",
             )
 
+            # =================================================
+            # CREATE PROJECT STRUCTURE
+            # =================================================
+
+            print(
+                "\nCREATING PROJECT STRUCTURE...\n"
+            )
+
+            directories = [
+
+                "app",
+
+                "app/routes",
+
+                "app/services",
+
+                "app/models",
+
+                "app/core",
+
+                "tests",
+            ]
+
+            for directory in directories:
+
+                await tool_executor.execute_tool(
+
+                    "create_directory",
+
+                    {
+                        "path": directory
+                    },
+                )
+
+            # =================================================
+            # WRITE GENERATED FILES
+            # =================================================
+
+            written_files = []
+
+            for file_data in generated_files:
+
+                try:
+
+                    file_path = file_data.get(
+                        "file_path",
+                        ""
+                    )
+
+                    code = file_data.get(
+                        "code",
+                        ""
+                    )
+
+                    purpose = file_data.get(
+                        "purpose",
+                        ""
+                    )
+
+                    if not file_path:
+
+                        continue
+
+                    print(
+                        f"\nWRITING FILE: {file_path}"
+                    )
+
+                    write_result = await (
+                        tool_executor.execute_tool(
+
+                            "write_file",
+
+                            {
+
+                                "path":
+                                    file_path,
+
+                                "content":
+                                    code,
+                            },
+                        )
+                    )
+
+                    written_files.append(
+
+                        {
+
+                            "file":
+                                file_path,
+
+                            "purpose":
+                                purpose,
+
+                            "result":
+                                write_result,
+                        }
+                    )
+
+                except Exception as e:
+
+                    print(
+                        f"\nFILE WRITE FAILED: {str(e)}"
+                    )
+
+            # =================================================
+            # WRITE REQUIREMENTS
+            # =================================================
+
+            requirements = "\n".join(
+
+                tech_stack
+            )
+
+            await tool_executor.execute_tool(
+
+                "write_file",
+
+                {
+
+                    "path":
+                        "requirements.txt",
+
+                    "content":
+                        requirements,
+                },
+            )
+
+            # =================================================
+            # WRITE DOCKERFILE
+            # =================================================
+
+            dockerfile = """
+FROM python:3.11
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install -r requirements.txt
+
+CMD ["python", "app/main.py"]
+"""
+
+            await tool_executor.execute_tool(
+
+                "write_file",
+
+                {
+
+                    "path":
+                        "Dockerfile",
+
+                    "content":
+                        dockerfile,
+                },
+            )
+
+            # =================================================
+            # WRITE README
+            # =================================================
+
+            readme = f"""
+# CognitiveOS Generated Project
+
+## Tech Stack
+
+{tech_stack}
+
+## APIs
+
+{api_implementations}
+"""
+
+            await tool_executor.execute_tool(
+
+                "write_file",
+
+                {
+
+                    "path":
+                        "README.md",
+
+                    "content":
+                        readme,
+                },
+            )
+
+            # =================================================
+            # EXECUTION VALIDATION
+            # =================================================
+
+            print(
+                "\nVALIDATING EXECUTION...\n"
+            )
+
+            execution_result = await (
+                tool_executor.execute_tool(
+
+                    "run_project",
+
+                    {
+
+                        "entry_file":
+                            "app/main.py"
+                    },
+                )
+            )
+
+            print(
+                "\nEXECUTION RESULT:\n"
+            )
+
+            print(execution_result)
+
+            stdout = ""
+            stderr = ""
+            return_code = -1
+
+            if execution_result.get(
+                "output"
+            ):
+
+                stdout = (
+                    execution_result[
+                        "output"
+                    ].get(
+                        "stdout",
+                        "",
+                    )
+                )
+
+                stderr = (
+                    execution_result[
+                        "output"
+                    ].get(
+                        "stderr",
+                        "",
+                    )
+                )
+
+                return_code = (
+                    execution_result[
+                        "output"
+                    ].get(
+                        "return_code",
+                        -1,
+                    )
+                )
+
+            # =================================================
+            # FINAL OUTPUT
+            # =================================================
+
             return {
 
                 "success": True,
@@ -256,6 +638,9 @@ Previous Outputs:
                 "generated_files":
                     generated_files,
 
+                "written_files":
+                    written_files,
+
                 "api_implementations":
                     api_implementations,
 
@@ -264,6 +649,24 @@ Previous Outputs:
 
                 "deployment_configs":
                     deployment_configs,
+
+                "execution_validation": {
+
+                    "stdout":
+                        stdout,
+
+                    "stderr":
+                        stderr,
+
+                    "return_code":
+                        return_code,
+
+                    "success":
+                        execution_result.get(
+                            "success",
+                            False,
+                        ),
+                },
 
                 "reasoning":
                     reasoning,
@@ -274,6 +677,25 @@ Previous Outputs:
         # ====================================================
 
         except Exception as e:
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "CODE AGENT FAILED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            print(str(e))
+
+            print(
+                traceback.format_exc()
+            )
 
             return {
 
@@ -296,37 +718,39 @@ Previous Outputs:
     def _system_prompt(self):
 
         return """
-You are the Code Agent for CognitiveOS.
+You are the Advanced Code Agent for CognitiveOS.
 
 Your role is to:
-- generate production-ready code
-- implement scalable systems
+- generate production-grade systems
+- create scalable architectures
+- generate executable projects
+- create modular backends
 - implement APIs
-- create backend services
-- generate modular codebases
-- follow architecture specifications
+- generate real project structures
 
 You think like:
-- Senior Software Engineer
-- Backend Engineer
-- Full Stack Engineer
-- Platform Engineer
+- Staff Software Engineer
+- Senior Backend Engineer
+- Platform Architect
 
 Focus on:
-- clean architecture
-- modularity
 - scalability
 - maintainability
+- modularity
 - production-readiness
-- readability
-- performance
+- clean architecture
+- runtime execution
 
-Code must:
-- follow best practices
-- be production-grade
-- be scalable
-- include proper structure
-- avoid toy implementations
+You MUST generate REAL executable systems.
+
+The generated codebase should include:
+- app structure
+- APIs
+- services
+- models
+- configs
+- Docker support
+- requirements
 
 Return ONLY valid JSON.
 
@@ -338,18 +762,19 @@ JSON FORMAT:
 
   "tech_stack": [
 
-    "FastAPI",
+    "fastapi",
 
-    "PostgreSQL",
+    "uvicorn",
 
-    "Redis",
+    "pydantic",
 
-    "Docker"
+    "sqlalchemy"
   ],
 
   "generated_files": [
 
-    {
+    {{
+
       "file_path":
         "app/main.py",
 
@@ -358,61 +783,65 @@ JSON FORMAT:
 
       "code":
         "from fastapi import FastAPI"
-    },
+    }},
 
-    {
+    {{
+
       "file_path":
         "app/routes/chat.py",
 
       "purpose":
-        "Chat API routes",
+        "Chat route",
 
       "code":
-        "router = APIRouter()"
-    }
+        "from fastapi import APIRouter"
+    }}
 
   ],
 
   "api_implementations": [
 
-    {
+    {{
+
       "endpoint":
-        "/api/v1/chat",
+        "/chat",
 
       "method":
         "POST",
 
       "description":
-        "Send chat message"
-    }
+        "Chat endpoint"
+    }}
 
   ],
 
   "database_models": [
 
-    {
+    {{
+
       "model":
         "User",
 
       "purpose":
         "Stores user information"
-    }
+    }}
 
   ],
 
   "deployment_configs": [
 
-    {
+    {{
+
       "file":
         "Dockerfile",
 
       "purpose":
         "Containerization"
-    }
+    }}
 
   ],
 
   "reasoning":
-    "FastAPI chosen for async scalability and modular backend architecture."
+    "FastAPI selected for async scalability."
 }}
 """

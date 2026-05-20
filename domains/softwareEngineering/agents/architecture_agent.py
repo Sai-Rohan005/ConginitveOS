@@ -1,21 +1,24 @@
 # domains/software_engineering/agents/architecture_agent.py
 
 """
-CognitiveOS - Architecture Agent
+CognitiveOS - Advanced Architecture Agent
 ---------------------------------------------------------
 
 Responsibilities:
 - design scalable systems
-- define service architecture
-- define APIs
+- define distributed architectures
+- design APIs
 - design databases
 - recommend infrastructure
 - define communication patterns
 - generate architecture reasoning
+- collaborate using artifacts
+- generate executable project structures
 
 This agent thinks like:
-- Senior Software Architect
+- Staff Software Architect
 - Distributed Systems Engineer
+- Cloud Architect
 - Platform Engineer
 """
 
@@ -27,6 +30,7 @@ import traceback
 from typing import (
     Dict,
     Any,
+    List,
 )
 
 from dataclasses import (
@@ -35,6 +39,7 @@ from dataclasses import (
 )
 
 import dotenv
+
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -46,8 +51,12 @@ from langchain_core.prompts import (
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
+
 dotenv.load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+
+api_key = os.getenv(
+    "GOOGLE_API_KEY"
+)
 
 # ============================================================
 # AGENT STATE
@@ -71,6 +80,10 @@ class ArchitectureAgentState:
         Any,
     ] = field(default_factory=dict)
 
+    context_artifacts: List[
+        Any
+    ] = field(default_factory=list)
+
     output: Dict[
         str,
         Any,
@@ -85,20 +98,24 @@ class ArchitectureAgentState:
 class ArchitectureAgent:
 
     """
-    Software Architecture Agent.
+    Advanced software architecture agent.
     """
 
     def __init__(self):
 
         self.model = os.getenv(
+
             "GOOGLE_MODEL",
+
             "gemini-2.0-flash",
         )
 
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
+
             google_api_key=api_key,
+
             temperature=0.2,
         )
 
@@ -109,16 +126,22 @@ class ArchitectureAgent:
         # ====================================================
 
         self.prompt = (
+
             ChatPromptTemplate.from_messages(
+
                 [
 
                     (
+
                         "system",
+
                         self._system_prompt(),
                     ),
 
                     (
+
                         "human",
+
                         """
 User Query:
 {query}
@@ -131,23 +154,13 @@ Previous Outputs:
 
 Shared Context:
 {shared_context}
+
+Context Artifacts:
+{context_artifacts}
                         """,
                     ),
                 ]
             )
-        )
-
-        # ====================================================
-        # CHAIN
-        # ====================================================
-
-        self.chain = (
-
-            self.prompt
-
-            | self.llm
-
-            | self.parser
         )
 
     # ========================================================
@@ -161,7 +174,55 @@ Shared Context:
 
         try:
 
-            response = await self.chain.ainvoke(
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "ARCHITECTURE AGENT STARTED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            # =================================================
+            # CONTEXT ARTIFACTS
+            # =================================================
+
+            context_artifacts = context.get(
+                "context_artifacts",
+                [],
+            )
+
+            previous_architectures = [
+
+                artifact
+
+                for artifact in context_artifacts
+
+                if (
+                    getattr(
+                        artifact,
+                        "artifact_type",
+                        "",
+                    )
+                    == "architecture"
+                )
+            ]
+
+            # =================================================
+            # RAW LLM CALL
+            # =================================================
+
+            raw_response = await (
+
+                self.prompt
+
+                | self.llm
+
+            ).ainvoke(
 
                 {
 
@@ -180,7 +241,7 @@ Shared Context:
                     "previous_outputs":
                         str(
                             context.get(
-                                "previous_outputs",
+                                "agent_outputs",
                                 {},
                             )
                         ),
@@ -192,16 +253,87 @@ Shared Context:
                                 {},
                             )
                         ),
+
+                    "context_artifacts":
+                        str(
+                            previous_architectures
+                        ),
                 }
             )
+
+            # =================================================
+            # EXTRACT RESPONSE
+            # =================================================
+
+            response_text = ""
+
+            if hasattr(
+                raw_response,
+                "content"
+            ):
+
+                response_text = (
+                    raw_response.content
+                )
+
+            else:
+
+                response_text = str(
+                    raw_response
+                )
+
+            print(
+                "\nRAW ARCHITECTURE RESPONSE:\n"
+            )
+
+            print(
+                response_text
+            )
+
+            # =================================================
+            # CLEAN JSON
+            # =================================================
+
+            response_text = (
+
+                response_text
+
+                .replace(
+                    "```json",
+                    "",
+                )
+
+                .replace(
+                    "```",
+                    "",
+                )
+
+                .strip()
+            )
+
+            # =================================================
+            # PARSE JSON
+            # =================================================
+
+            response = self.parser.parse(
+                response_text
+            )
+
+            print(
+                "\nPARSED ARCHITECTURE RESPONSE:\n"
+            )
+
+            print(response)
 
             # =================================================
             # SAFE EXTRACTION
             # =================================================
 
             architecture_type = response.get(
+
                 "architecture_type",
-                "microservices",
+
+                "modular_monolith",
             )
 
             services = response.get(
@@ -231,12 +363,38 @@ Shared Context:
                 )
             )
 
+            communication_patterns = (
+                response.get(
+                    "communication_patterns",
+                    [],
+                )
+            )
+
+            project_structure = response.get(
+                "project_structure",
+                [],
+            )
+
+            security_design = response.get(
+                "security_design",
+                {},
+            )
+
+            deployment_strategy = response.get(
+                "deployment_strategy",
+                {},
+            )
+
             reasoning = response.get(
                 "reasoning",
                 "",
             )
 
-            return {
+            # =================================================
+            # FINAL OUTPUT
+            # =================================================
+
+            architecture_output = {
 
                 "success": True,
 
@@ -261,15 +419,56 @@ Shared Context:
                 "scalability_considerations":
                     scalability_considerations,
 
+                "communication_patterns":
+                    communication_patterns,
+
+                "project_structure":
+                    project_structure,
+
+                "security_design":
+                    security_design,
+
+                "deployment_strategy":
+                    deployment_strategy,
+
                 "reasoning":
                     reasoning,
             }
+
+            print(
+                "\nFINAL ARCHITECTURE OUTPUT:\n"
+            )
+
+            print(
+                architecture_output
+            )
+
+            return architecture_output
 
         # ====================================================
         # ERROR HANDLING
         # ====================================================
 
         except Exception as e:
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "ARCHITECTURE AGENT FAILED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            print(str(e))
+
+            print(
+                traceback.format_exc()
+            )
 
             return {
 
@@ -292,29 +491,34 @@ Shared Context:
     def _system_prompt(self):
 
         return """
-You are the Architecture Agent for CognitiveOS.
+You are the Advanced Architecture Agent for CognitiveOS.
 
-Your role is to design:
-- scalable software architectures
-- APIs
-- database schemas
-- infrastructure
-- distributed systems
-- backend services
-- deployment architecture
+Your role is to:
+- design scalable architectures
+- define APIs
+- define infrastructure
+- define deployment architecture
+- define security models
+- design distributed systems
+- design production-ready systems
 
 You think like:
-- Senior Software Architect
+- Staff Software Architect
 - Distributed Systems Engineer
 - Cloud Architect
+- Platform Engineer
 
 Focus on:
 - scalability
 - maintainability
-- reliability
-- performance
 - modularity
+- reliability
+- observability
 - production-readiness
+- fault tolerance
+- clean architecture
+
+You MUST generate REAL production-ready architecture.
 
 Return ONLY valid JSON.
 
@@ -326,20 +530,33 @@ JSON FORMAT:
 
   "services": [
 
-    {
+    {{
+
       "name":
         "auth_service",
 
       "responsibility":
-        "Authentication and authorization",
+        "JWT authentication",
 
       "communication":
         "REST"
-    }
+    }},
+
+    {{
+
+      "name":
+        "chat_service",
+
+      "responsibility":
+        "Realtime chat handling",
+
+      "communication":
+        "WebSocket"
+    }}
 
   ],
 
-  "database_design": {
+  "database_design": {{
 
     "primary_database":
       "PostgreSQL",
@@ -349,11 +566,12 @@ JSON FORMAT:
 
     "storage":
       "S3"
-  },
+  }},
 
   "api_design": [
 
-    {
+    {{
+
       "endpoint":
         "/api/v1/chat",
 
@@ -361,12 +579,12 @@ JSON FORMAT:
         "POST",
 
       "purpose":
-        "Send chat messages"
-    }
+        "Chat endpoint"
+    }}
 
   ],
 
-  "infrastructure": {
+  "infrastructure": {{
 
     "containerization":
       "Docker",
@@ -376,18 +594,68 @@ JSON FORMAT:
 
     "ci_cd":
       "GitHub Actions"
-  },
+  }},
+
+  "communication_patterns": [
+
+    "REST",
+
+    "WebSockets",
+
+    "Async events"
+  ],
+
+  "project_structure": [
+
+    "app/",
+
+    "app/routes/",
+
+    "app/services/",
+
+    "app/models/",
+
+    "app/core/",
+
+    "tests/"
+  ],
+
+  "security_design": {{
+
+    "authentication":
+      "JWT",
+
+    "authorization":
+      "RBAC",
+
+    "rate_limiting":
+      true
+  }},
+
+  "deployment_strategy": {{
+
+    "containerized":
+      true,
+
+    "horizontal_scaling":
+      true,
+
+    "load_balancer":
+      "NGINX"
+  }},
 
   "scalability_considerations": [
 
     "horizontal scaling",
 
-    "load balancing",
+    "database indexing",
 
-    "database indexing"
+    "async processing",
+
+    "caching"
   ],
 
   "reasoning":
-    "Microservices chosen for scalability and modularity."
+    "Microservices selected for scalability and modularity."
 }}
 """

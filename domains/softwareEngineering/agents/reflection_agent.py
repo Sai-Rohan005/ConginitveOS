@@ -411,7 +411,7 @@ JSON FORMAT:
 
   "retry_required": true,
 
-  "retry_strategy": {
+  "retry_strategy": {{
 
     "reason":
       "Security vulnerabilities detected",
@@ -421,11 +421,11 @@ JSON FORMAT:
 
     "max_retry_iterations":
       2
-  },
+  }},
 
   "retry_steps": [
 
-    {
+    {{
       "step_id": 2,
 
       "improvement_action":
@@ -433,9 +433,9 @@ JSON FORMAT:
 
       "reason":
         "Authentication layer missing"
-    },
+    }},
 
-    {
+    {{
       "step_id": 3,
 
       "improvement_action":
@@ -443,7 +443,7 @@ JSON FORMAT:
 
       "reason":
         "Performance bottleneck detected"
-    }
+    }}
 
   ],
 

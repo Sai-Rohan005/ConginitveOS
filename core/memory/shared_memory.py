@@ -40,7 +40,7 @@ from typing import (
 # IMPORT ARTIFACT SYSTEM
 # ============================================================
 
-from domains.softwareEngineering.memory.artifacts import (
+from core.memory.artifacts import (
 
     Artifact,
 

@@ -80,7 +80,7 @@ from domains.softwareEngineering.tools.tool_executor import (
 # MEMORY
 # ============================================================
 
-from memory.shared_memory import (
+from core.memory.shared_memory import (
 
     SharedMemory,
 
@@ -91,7 +91,7 @@ from memory.shared_memory import (
 # ARTIFACTS
 # ============================================================
 
-from memory.artifacts import (
+from core.memory.artifacts import (
     ArtifactType,
 )
 
@@ -111,7 +111,7 @@ from domains.softwareEngineering.runtime.runtime_validator import (
     RuntimeValidator,
 )
 
-from runtime.deterministic_debugger import (
+from core.runtime.deterministic_debugger import (
     DeterministicDebugger,
 )
 
@@ -119,7 +119,7 @@ from domains.softwareEngineering.runtime.retry_policy import (
     RetryPolicy,
 )
 
-from runtime.patch_engine import (
+from core.runtime.patch_engine import (
     PatchEngine,
 )
 

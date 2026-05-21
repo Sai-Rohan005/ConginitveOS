@@ -1,31 +1,28 @@
 # domains/software_engineering/agents/reflection_agent.py
 
 """
-CognitiveOS - Reflection Agent
+CognitiveOS - Strategic Reflection Agent
 ---------------------------------------------------------
 
 Responsibilities:
-- critique outputs
-- validate correctness
-- identify hallucinations
-- detect scalability issues
-- detect architectural flaws
-- identify missing components
-- suggest improvements
-- trigger retries
-- improve failed execution steps
+- critique architecture quality
+- evaluate production readiness
+- analyze scalability
+- detect enterprise gaps
+- identify missing infrastructure
+- improve maintainability
+- improve reliability
+- trigger strategic retries
 
-Cognitive Loop:
+IMPORTANT:
 
-generate
-    ↓
-reflect
-    ↓
-retry failed steps
-    ↓
-improve outputs
-    ↓
-re-reflect
+This agent NO LONGER handles:
+- syntax issues
+- import failures
+- dependency issues
+- runtime patching
+
+Those are deterministic now.
 """
 
 from __future__ import annotations
@@ -45,6 +42,7 @@ from dataclasses import (
 )
 
 import dotenv
+
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -56,8 +54,13 @@ from langchain_core.prompts import (
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
+
 dotenv.load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
+
+api_key = os.getenv(
+    "GOOGLE_API_KEY"
+)
+
 # ============================================================
 # STATE
 # ============================================================
@@ -77,6 +80,10 @@ class ReflectionAgentState:
         default_factory=list
     )
 
+    runtime_repairs: List[
+        Dict[str, Any]
+    ] = field(default_factory=list)
+
     reflection_notes: List[
         str
     ] = field(default_factory=list)
@@ -95,20 +102,24 @@ class ReflectionAgentState:
 class ReflectionAgent:
 
     """
-    Reflection & Self-Improvement Agent.
+    Strategic reflection and production-readiness evaluator.
     """
 
     def __init__(self):
 
         self.model = os.getenv(
+
             "GOOGLE_MODEL",
+
             "gemini-2.0-flash",
         )
 
         self.llm = ChatGoogleGenerativeAI(
 
             model=self.model,
+
             google_api_key=api_key,
+
             temperature=0.1,
         )
 
@@ -119,16 +130,22 @@ class ReflectionAgent:
         # ====================================================
 
         self.prompt = (
+
             ChatPromptTemplate.from_messages(
+
                 [
 
                     (
+
                         "system",
+
                         self._system_prompt(),
                     ),
 
                     (
+
                         "human",
+
                         """
 User Query:
 {query}
@@ -138,6 +155,9 @@ Agent Outputs:
 
 Artifacts:
 {artifacts}
+
+Runtime Repairs:
+{runtime_repairs}
                         """,
                     ),
                 ]
@@ -168,6 +188,28 @@ Artifacts:
 
         try:
 
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "REFLECTION AGENT STARTED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            runtime_repairs = context.get(
+                "runtime_repairs",
+                [],
+            )
+
+            # =================================================
+            # GEMINI CALL
+            # =================================================
+
             response = await self.chain.ainvoke(
 
                 {
@@ -193,8 +235,19 @@ Artifacts:
                                 [],
                             )
                         ),
+
+                    "runtime_repairs":
+                        str(
+                            runtime_repairs
+                        ),
                 }
             )
+
+            print(
+                "\nREFLECTION RESPONSE:\n"
+            )
+
+            print(response)
 
             # =================================================
             # SAFE EXTRACTION
@@ -205,8 +258,8 @@ Artifacts:
                 "medium",
             )
 
-            correctness_analysis = response.get(
-                "correctness_analysis",
+            architecture_analysis = response.get(
+                "architecture_analysis",
                 [],
             )
 
@@ -220,8 +273,20 @@ Artifacts:
                 [],
             )
 
+            production_readiness_analysis = (
+                response.get(
+                    "production_readiness_analysis",
+                    [],
+                )
+            )
+
             missing_components = response.get(
                 "missing_components",
+                [],
+            )
+
+            enterprise_gaps = response.get(
+                "enterprise_gaps",
                 [],
             )
 
@@ -252,7 +317,19 @@ Artifacts:
                 "",
             )
 
-            return {
+            # =================================================
+            # AUTO DISABLE RETRIES
+            # =================================================
+
+            if runtime_repairs:
+
+                retry_required = False
+
+            # =================================================
+            # FINAL OUTPUT
+            # =================================================
+
+            reflection_output = {
 
                 "success": True,
 
@@ -262,8 +339,8 @@ Artifacts:
                 "overall_quality":
                     overall_quality,
 
-                "correctness_analysis":
-                    correctness_analysis,
+                "architecture_analysis":
+                    architecture_analysis,
 
                 "scalability_analysis":
                     scalability_analysis,
@@ -271,8 +348,14 @@ Artifacts:
                 "security_analysis":
                     security_analysis,
 
+                "production_readiness_analysis":
+                    production_readiness_analysis,
+
                 "missing_components":
                     missing_components,
+
+                "enterprise_gaps":
+                    enterprise_gaps,
 
                 "improvement_suggestions":
                     improvement_suggestions,
@@ -286,15 +369,47 @@ Artifacts:
                 "retry_steps":
                     retry_steps,
 
+                "runtime_repairs":
+                    runtime_repairs,
+
                 "reasoning":
                     reasoning,
             }
+
+            print(
+                "\nFINAL REFLECTION OUTPUT:\n"
+            )
+
+            print(
+                reflection_output
+            )
+
+            return reflection_output
 
         # ====================================================
         # ERROR HANDLING
         # ====================================================
 
         except Exception as e:
+
+            print(
+                "\n"
+                + "=" * 80
+            )
+
+            print(
+                "REFLECTION AGENT FAILED"
+            )
+
+            print(
+                "=" * 80
+            )
+
+            print(str(e))
+
+            print(
+                traceback.format_exc()
+            )
 
             return {
 
@@ -317,52 +432,56 @@ Artifacts:
     def _system_prompt(self):
 
         return """
-You are the Reflection Agent for CognitiveOS.
+You are the Strategic Reflection Agent for CognitiveOS.
 
-Your role is to:
-- critique outputs
-- validate correctness
-- detect flaws
-- identify weak implementations
-- detect missing components
-- validate production readiness
-- improve failed outputs
-- generate retry strategies
-- improve system quality iteratively
+Your role is ONLY to:
+- evaluate architecture quality
+- evaluate production readiness
+- evaluate scalability
+- evaluate maintainability
+- evaluate enterprise readiness
+- detect missing infrastructure
+- detect missing observability
+- detect security weaknesses
+- recommend strategic improvements
+
+IMPORTANT:
+
+You DO NOT handle:
+- syntax fixes
+- import issues
+- dependency installation
+- runtime patching
+- uvicorn fixes
+- FastAPI startup issues
+
+Those are deterministic systems now.
 
 You think like:
 - Principal Engineer
-- Senior Reviewer
 - Staff Architect
-- Technical Auditor
+- Platform Reviewer
+- Enterprise Reliability Auditor
 
 You are STRICT and analytical.
 
-You DO NOT generate final solutions.
+Focus ONLY on:
 
-You ONLY:
-- evaluate
-- critique
-- improve
-- recommend retries
-- improve failed outputs
-
-Focus on:
-
-1. correctness
+1. architecture quality
 2. scalability
-3. reliability
-4. maintainability
-5. production readiness
-6. security
-7. runtime stability
-8. architecture quality
+3. maintainability
+4. production readiness
+5. enterprise readiness
+6. reliability
+7. observability
+8. security hardening
+9. distributed systems quality
 
 If outputs are weak:
 - trigger retries
-- recommend improvements
-- specify exactly what failed
-- explain how to improve
+- recommend strategic improvements
+- identify missing enterprise components
+- explain architectural weaknesses
 
 Return ONLY valid JSON.
 
@@ -370,57 +489,74 @@ JSON FORMAT:
 
 {{
   "overall_quality":
-    "medium",
+    "high",
 
-  "correctness_analysis": [
+  "architecture_analysis": [
 
-    "Architecture is logically consistent",
+    "Architecture is modular",
 
-    "Database flow is valid"
+    "Service boundaries are clear"
   ],
 
   "scalability_analysis": [
 
     "Horizontal scaling supported",
 
-    "Caching layer missing"
+    "Redis caching missing"
   ],
 
   "security_analysis": [
 
-    "Authentication middleware absent",
+    "JWT validation implemented",
 
-    "Rate limiting not implemented"
+    "Rate limiting absent"
+  ],
+
+  "production_readiness_analysis": [
+
+    "Docker support available",
+
+    "Monitoring stack missing"
   ],
 
   "missing_components": [
 
     "Centralized logging",
 
-    "Monitoring system"
+    "Tracing system",
+
+    "Health check endpoints"
+  ],
+
+  "enterprise_gaps": [
+
+    "No CI/CD pipeline",
+
+    "No observability layer"
   ],
 
   "improvement_suggestions": [
 
-    "Add JWT middleware",
+    "Add Prometheus metrics",
 
     "Add structured logging",
 
-    "Add retry mechanism"
+    "Add Redis caching"
   ],
 
-  "retry_required": true,
+  "retry_required":
+    false,
 
   "retry_strategy": {{
 
     "reason":
-      "Security vulnerabilities detected",
+      "Architecture improvements required",
 
     "priority":
-      "high",
+      "medium",
 
     "max_retry_iterations":
-      2
+      1
   }},
 
   "retry_steps": [
@@ -429,25 +565,15 @@ JSON FORMAT:
       "step_id": 2,
 
       "improvement_action":
-        "Add JWT authentication middleware",
+        "Add observability stack",
 
       "reason":
-        "Authentication layer missing"
-    }},
-
-    {{
-      "step_id": 3,
-
-      "improvement_action":
-        "Implement Redis caching",
-
-      "reason":
-        "Performance bottleneck detected"
+        "Production monitoring missing"
     }}
 
   ],
 
   "reasoning":
-    "The system architecture is scalable but lacks production-grade security and observability."
+    "System is production capable but lacks enterprise observability and resilience tooling."
 }}
 """

@@ -1,20 +1,20 @@
 # domains/software_engineering/memory/artifacts.py
 
 """
-CognitiveOS - Artifact System
+CognitiveOS - Advanced Artifact System
 ---------------------------------------------------------
 
 Responsibilities:
 - store generated artifacts
-- maintain execution outputs
-- preserve code generations
-- store logs
-- store stack traces
-- maintain runtime assets
+- preserve execution history
+- maintain runtime intelligence
 - support inter-agent collaboration
+- preserve runtime repairs
+- preserve patch history
+- preserve validation history
+- maintain workspace cognition
 
-Artifacts become the LONG-TERM
-working memory of CognitiveOS.
+Artifacts become the LONG-TERM cognition layer.
 """
 
 from __future__ import annotations
@@ -34,7 +34,6 @@ from typing import (
     Optional,
     List,
 )
-
 
 # ============================================================
 # ARTIFACT TYPES
@@ -66,6 +65,28 @@ class ArtifactType:
     DEPLOYMENT = "deployment"
 
     GENERATED_FILE = "generated_file"
+
+    RUNTIME_REPAIR = "runtime_repair"
+
+    PATCH = "patch"
+
+    VALIDATION = "validation"
+
+    WORKSPACE_SNAPSHOT = (
+        "workspace_snapshot"
+    )
+
+    DEPENDENCY_INSTALL = (
+        "dependency_install"
+    )
+
+    RETRY = "retry"
+
+    EXECUTION_SESSION = (
+        "execution_session"
+    )
+
+    METRICS = "metrics"
 
 
 # ============================================================
@@ -169,6 +190,59 @@ class ReflectionArtifact(Artifact):
 
 
 # ============================================================
+# PATCH ARTIFACT
+# ============================================================
+
+
+@dataclass
+class PatchArtifact(Artifact):
+
+    target_file: Optional[
+        str
+    ] = None
+
+    patch_strategy: Optional[
+        str
+    ] = None
+
+    success: bool = False
+
+
+# ============================================================
+# VALIDATION ARTIFACT
+# ============================================================
+
+
+@dataclass
+class ValidationArtifact(Artifact):
+
+    validation_type: Optional[
+        str
+    ] = None
+
+    passed: bool = False
+
+    validation_errors: List[
+        str
+    ] = field(default_factory=list)
+
+
+# ============================================================
+# DEPENDENCY ARTIFACT
+# ============================================================
+
+
+@dataclass
+class DependencyArtifact(Artifact):
+
+    dependency_name: Optional[
+        str
+    ] = None
+
+    install_success: bool = False
+
+
+# ============================================================
 # ARTIFACT MANAGER
 # ============================================================
 
@@ -176,7 +250,7 @@ class ReflectionArtifact(Artifact):
 class ArtifactManager:
 
     """
-    Central artifact management system.
+    Centralized artifact cognition system.
     """
 
     def __init__(self):
@@ -186,14 +260,19 @@ class ArtifactManager:
         ] = []
 
     # ========================================================
-    # CREATE BASE ARTIFACT
+    # BASE CREATION
     # ========================================================
 
     def create_artifact(
+
         self,
+
         artifact_type: str,
+
         created_by: str,
+
         content: Any,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
@@ -205,17 +284,21 @@ class ArtifactManager:
                 uuid.uuid4()
             ),
 
-            artifact_type=artifact_type,
+            artifact_type=
+                artifact_type,
 
-            created_by=created_by,
+            created_by=
+                created_by,
 
-            content=content,
+            content=
+                content,
 
             timestamp=(
                 datetime.utcnow().isoformat()
             ),
 
-            metadata=metadata or {},
+            metadata=
+                metadata or {},
         )
 
         self.artifacts.append(
@@ -225,15 +308,21 @@ class ArtifactManager:
         return artifact
 
     # ========================================================
-    # CREATE CODE ARTIFACT
+    # CODE ARTIFACT
     # ========================================================
 
     def create_code_artifact(
+
         self,
+
         created_by: str,
+
         code: str,
+
         file_path: str,
+
         language: str,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
@@ -245,23 +334,27 @@ class ArtifactManager:
                 uuid.uuid4()
             ),
 
-            artifact_type=(
-                ArtifactType.CODE
-            ),
+            artifact_type=
+                ArtifactType.CODE,
 
-            created_by=created_by,
+            created_by=
+                created_by,
 
-            content=code,
+            content=
+                code,
 
             timestamp=(
                 datetime.utcnow().isoformat()
             ),
 
-            metadata=metadata or {},
+            metadata=
+                metadata or {},
 
-            file_path=file_path,
+            file_path=
+                file_path,
 
-            language=language,
+            language=
+                language,
         )
 
         self.artifacts.append(
@@ -271,15 +364,21 @@ class ArtifactManager:
         return artifact
 
     # ========================================================
-    # CREATE EXECUTION ARTIFACT
+    # EXECUTION ARTIFACT
     # ========================================================
 
     def create_execution_artifact(
+
         self,
+
         created_by: str,
+
         stdout: str,
+
         stderr: str,
+
         return_code: int,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
@@ -291,11 +390,11 @@ class ArtifactManager:
                 uuid.uuid4()
             ),
 
-            artifact_type=(
-                ArtifactType.EXECUTION_LOG
-            ),
+            artifact_type=
+                ArtifactType.EXECUTION_LOG,
 
-            created_by=created_by,
+            created_by=
+                created_by,
 
             content={
 
@@ -310,13 +409,17 @@ class ArtifactManager:
                 datetime.utcnow().isoformat()
             ),
 
-            metadata=metadata or {},
+            metadata=
+                metadata or {},
 
-            stdout=stdout,
+            stdout=
+                stdout,
 
-            stderr=stderr,
+            stderr=
+                stderr,
 
-            return_code=return_code,
+            return_code=
+                return_code,
         )
 
         self.artifacts.append(
@@ -326,48 +429,58 @@ class ArtifactManager:
         return artifact
 
     # ========================================================
-    # CREATE DEBUG ARTIFACT
+    # PATCH ARTIFACT
     # ========================================================
 
-    def create_debug_artifact(
+    def create_patch_artifact(
+
         self,
+
         created_by: str,
-        issue_type: str,
-        severity: str,
-        recommended_fix: str,
+
+        target_file: str,
+
+        patch_strategy: str,
+
+        success: bool,
+
         content: Any,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
-    ) -> DebugArtifact:
+    ) -> PatchArtifact:
 
-        artifact = DebugArtifact(
+        artifact = PatchArtifact(
 
             artifact_id=str(
                 uuid.uuid4()
             ),
 
-            artifact_type=(
-                ArtifactType.DEBUG_REPORT
-            ),
+            artifact_type=
+                ArtifactType.PATCH,
 
-            created_by=created_by,
+            created_by=
+                created_by,
 
-            content=content,
+            content=
+                content,
 
             timestamp=(
                 datetime.utcnow().isoformat()
             ),
 
-            metadata=metadata or {},
+            metadata=
+                metadata or {},
 
-            issue_type=issue_type,
+            target_file=
+                target_file,
 
-            severity=severity,
+            patch_strategy=
+                patch_strategy,
 
-            recommended_fix=(
-                recommended_fix
-            ),
+            success=
+                success,
         )
 
         self.artifacts.append(
@@ -377,54 +490,60 @@ class ArtifactManager:
         return artifact
 
     # ========================================================
-    # CREATE REFLECTION ARTIFACT
+    # VALIDATION ARTIFACT
     # ========================================================
 
-    def create_reflection_artifact(
+    def create_validation_artifact(
+
         self,
+
         created_by: str,
-        content: Any,
-        retry_required: bool,
-        retry_steps: List[
-            Dict[str, Any]
+
+        validation_type: str,
+
+        passed: bool,
+
+        validation_errors: List[
+            str
         ],
-        quality_score: str,
+
+        content: Any,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
-    ) -> ReflectionArtifact:
+    ) -> ValidationArtifact:
 
-        artifact = ReflectionArtifact(
+        artifact = ValidationArtifact(
 
             artifact_id=str(
                 uuid.uuid4()
             ),
 
-            artifact_type=(
-                ArtifactType.REFLECTION
-            ),
+            artifact_type=
+                ArtifactType.VALIDATION,
 
-            created_by=created_by,
+            created_by=
+                created_by,
 
-            content=content,
+            content=
+                content,
 
             timestamp=(
                 datetime.utcnow().isoformat()
             ),
 
-            metadata=metadata or {},
+            metadata=
+                metadata or {},
 
-            retry_required=(
-                retry_required
-            ),
+            validation_type=
+                validation_type,
 
-            retry_steps=(
-                retry_steps
-            ),
+            passed=
+                passed,
 
-            quality_score=(
-                quality_score
-            ),
+            validation_errors=
+                validation_errors,
         )
 
         self.artifacts.append(
@@ -434,7 +553,63 @@ class ArtifactManager:
         return artifact
 
     # ========================================================
-    # GET ALL ARTIFACTS
+    # DEPENDENCY ARTIFACT
+    # ========================================================
+
+    def create_dependency_artifact(
+
+        self,
+
+        created_by: str,
+
+        dependency_name: str,
+
+        install_success: bool,
+
+        content: Any,
+
+        metadata: Optional[
+            Dict[str, Any]
+        ] = None,
+    ) -> DependencyArtifact:
+
+        artifact = DependencyArtifact(
+
+            artifact_id=str(
+                uuid.uuid4()
+            ),
+
+            artifact_type=
+                ArtifactType.DEPENDENCY_INSTALL,
+
+            created_by=
+                created_by,
+
+            content=
+                content,
+
+            timestamp=(
+                datetime.utcnow().isoformat()
+            ),
+
+            metadata=
+                metadata or {},
+
+            dependency_name=
+                dependency_name,
+
+            install_success=
+                install_success,
+        )
+
+        self.artifacts.append(
+            artifact
+        )
+
+        return artifact
+
+    # ========================================================
+    # GETTERS
     # ========================================================
 
     def get_all_artifacts(
@@ -443,12 +618,10 @@ class ArtifactManager:
 
         return self.artifacts
 
-    # ========================================================
-    # GET BY TYPE
-    # ========================================================
-
     def get_artifacts_by_type(
+
         self,
+
         artifact_type: str,
     ) -> List[Artifact]:
 
@@ -464,12 +637,10 @@ class ArtifactManager:
             )
         ]
 
-    # ========================================================
-    # GET BY CREATOR
-    # ========================================================
-
     def get_artifacts_by_creator(
+
         self,
+
         created_by: str,
     ) -> List[Artifact]:
 
@@ -486,7 +657,7 @@ class ArtifactManager:
         ]
 
     # ========================================================
-    # EXPORT ARTIFACTS
+    # EXPORT
     # ========================================================
 
     def export_artifacts(

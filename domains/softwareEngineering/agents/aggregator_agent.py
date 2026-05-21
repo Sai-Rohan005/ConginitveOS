@@ -1,30 +1,28 @@
 # domains/software_engineering/agents/aggregator_agent.py
 
 """
-CognitiveOS - Aggregator Agent
+CognitiveOS - Deterministic Aggregator Agent
 ---------------------------------------------------------
 
 Responsibilities:
-- merge outputs from all agents
-- remove redundancy
-- synthesize reasoning
-- generate coherent final responses
-- create structured engineering reports
-- summarize workflow execution
-- produce user-facing output
+- aggregate workflow outputs
+- synthesize execution results
+- summarize runtime repairs
+- summarize architecture
+- summarize APIs
+- generate engineering reports
+- produce final user-facing output
 
-This agent acts like:
-- Technical Lead
-- Senior Engineering Manager
-- Solution Architect
-- Final Report Generator
-
-This is the FINAL response generation layer.
+This is now:
+- deterministic first
+- LLM optional
+- runtime-aware
+- artifact-aware
 """
 
 from __future__ import annotations
 
-import os
+import json
 import traceback
 
 from typing import (
@@ -37,16 +35,7 @@ from dataclasses import (
     dataclass,
     field,
 )
-import dotenv
-from langchain_google_genai import (
-    ChatGoogleGenerativeAI,
-)
 
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-)
-dotenv.load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
 # ============================================================
 # STATE
 # ============================================================
@@ -70,6 +59,15 @@ class AggregatorAgentState:
         default_factory=list
     )
 
+    runtime_repairs: List[
+        Dict[str, Any]
+    ] = field(default_factory=list)
+
+    metrics: Dict[
+        str,
+        Any,
+    ] = field(default_factory=dict)
+
     final_response: str = ""
 
 
@@ -81,65 +79,12 @@ class AggregatorAgentState:
 class AggregatorAgent:
 
     """
-    Final synthesis agent for CognitiveOS.
+    Deterministic engineering report generator.
     """
 
     def __init__(self):
 
-        self.model = os.getenv(
-            "GOOGLE_MODEL",
-            
-            "gemini-2.0-flash",
-        )
-
-        self.llm = ChatGoogleGenerativeAI(
-
-            model=self.model,
-            google_api_key=api_key,
-            temperature=0.2,
-        )
-
-        # ====================================================
-        # PROMPT
-        # ====================================================
-
-        self.prompt = (
-            ChatPromptTemplate.from_messages(
-                [
-
-                    (
-                        "system",
-                        self._system_prompt(),
-                    ),
-
-                    (
-                        "human",
-                        """
-User Query:
-{query}
-
-Agent Outputs:
-{agent_outputs}
-
-Reflection Notes:
-{reflection_notes}
-
-Artifacts:
-{artifacts}
-                        """,
-                    ),
-                ]
-            )
-        )
-
-        # ====================================================
-        # CHAIN
-        # ====================================================
-
-        self.chain = (
-            self.prompt
-            | self.llm
-        )
+        pass
 
     # ========================================================
     # MAIN EXECUTION
@@ -148,121 +93,434 @@ Artifacts:
     async def run(
         self,
         context: Dict[str, Any],
-    ) -> str:
+    ) -> Dict[str, Any]:
 
         try:
 
-            response = await self.chain.ainvoke(
+            query = context.get(
+                "query",
+                "",
+            )
 
-                {
+            agent_outputs = context.get(
+                "agent_outputs",
+                {},
+            )
 
-                    "query":
-                        context.get(
-                            "query",
+            artifacts = context.get(
+                "artifacts",
+                [],
+            )
+
+            runtime_repairs = context.get(
+                "runtime_repairs",
+                [],
+            )
+
+            reflection_notes = context.get(
+                "reflection_notes",
+                [],
+            )
+
+            metrics = context.get(
+                "metrics",
+                {},
+            )
+
+            # =================================================
+            # EXTRACT OUTPUTS
+            # =================================================
+
+            architecture_output = (
+                self._find_agent_output(
+                    agent_outputs,
+                    "architecture_agent",
+                )
+            )
+
+            code_output = (
+                self._find_agent_output(
+                    agent_outputs,
+                    "code_agent",
+                )
+            )
+
+            debug_output = (
+                self._find_agent_output(
+                    agent_outputs,
+                    "debug_agent",
+                )
+            )
+
+            # =================================================
+            # BUILD FINAL REPORT
+            # =================================================
+
+            report = []
+
+            report.append(
+                "# CognitiveOS Engineering Report\n"
+            )
+
+            # =================================================
+            # OVERVIEW
+            # =================================================
+
+            report.append(
+                "## Overview\n"
+            )
+
+            report.append(
+                f"User Request:\n{query}\n"
+            )
+
+            # =================================================
+            # ARCHITECTURE
+            # =================================================
+
+            report.append(
+                "## Architecture\n"
+            )
+
+            if architecture_output:
+
+                architecture_type = (
+                    architecture_output.get(
+                        "architecture_type",
+                        "N/A",
+                    )
+                )
+
+                report.append(
+                    f"Architecture Type: {architecture_type}\n"
+                )
+
+                services = (
+                    architecture_output.get(
+                        "services",
+                        [],
+                    )
+                )
+
+                if services:
+
+                    report.append(
+                        "### Services\n"
+                    )
+
+                    for service in services:
+
+                        report.append(
+                            f"- {service}\n"
+                        )
+
+            # =================================================
+            # GENERATED FILES
+            # =================================================
+
+            report.append(
+                "## Generated Files\n"
+            )
+
+            if code_output:
+
+                generated_files = (
+                    code_output.get(
+                        "generated_files",
+                        [],
+                    )
+                )
+
+                for file_data in generated_files:
+
+                    file_path = (
+                        file_data.get(
+                            "file_path",
                             "",
-                        ),
+                        )
+                    )
 
-                    "agent_outputs":
-                        str(
-                            context.get(
-                                "agent_outputs",
-                                {},
-                            )
-                        ),
+                    purpose = (
+                        file_data.get(
+                            "purpose",
+                            "",
+                        )
+                    )
 
-                    "reflection_notes":
-                        str(
-                            context.get(
-                                "reflection_notes",
-                                [],
-                            )
-                        ),
+                    report.append(
+                        f"- {file_path} → {purpose}\n"
+                    )
 
-                    "artifacts":
-                        str(
-                            context.get(
-                                "artifacts",
-                                [],
-                            )
-                        ),
-                }
+            # =================================================
+            # APIs
+            # =================================================
+
+            report.append(
+                "## APIs\n"
             )
 
-            return str(
-                response.content
+            if code_output:
+
+                apis = (
+                    code_output.get(
+                        "api_implementations",
+                        [],
+                    )
+                )
+
+                for api in apis:
+
+                    endpoint = api.get(
+                        "endpoint",
+                        "",
+                    )
+
+                    method = api.get(
+                        "method",
+                        "",
+                    )
+
+                    description = api.get(
+                        "description",
+                        "",
+                    )
+
+                    report.append(
+                        f"- [{method}] {endpoint} → {description}\n"
+                    )
+
+            # =================================================
+            # EXECUTION VALIDATION
+            # =================================================
+
+            report.append(
+                "## Runtime Validation\n"
             )
 
-        # ====================================================
-        # ERROR HANDLING
-        # ====================================================
+            if code_output:
+
+                execution_validation = (
+                    code_output.get(
+                        "execution_validation",
+                        {},
+                    )
+                )
+
+                success = (
+                    execution_validation.get(
+                        "success",
+                        False,
+                    )
+                )
+
+                return_code = (
+                    execution_validation.get(
+                        "return_code",
+                        -1,
+                    )
+                )
+
+                report.append(
+                    f"Execution Success: {success}\n"
+                )
+
+                report.append(
+                    f"Return Code: {return_code}\n"
+                )
+
+                stderr = (
+                    execution_validation.get(
+                        "stderr",
+                        "",
+                    )
+                )
+
+                if stderr:
+
+                    report.append(
+                        "\n### Runtime Errors\n"
+                    )
+
+                    report.append(
+                        f"```text\n{stderr}\n```\n"
+                    )
+
+            # =================================================
+            # RUNTIME REPAIRS
+            # =================================================
+
+            report.append(
+                "## Runtime Repairs\n"
+            )
+
+            if runtime_repairs:
+
+                for repair in runtime_repairs:
+
+                    content = getattr(
+                        repair,
+                        "content",
+                        repair,
+                    )
+
+                    strategy = (
+                        content.get(
+                            "strategy",
+                            "unknown",
+                        )
+                    )
+
+                    report.append(
+                        f"- Applied Repair: {strategy}\n"
+                    )
+
+            else:
+
+                report.append(
+                    "No runtime repairs required.\n"
+                )
+
+            # =================================================
+            # DEBUGGING INSIGHTS
+            # =================================================
+
+            report.append(
+                "## Debugging Insights\n"
+            )
+
+            if debug_output:
+
+                issues = (
+                    debug_output.get(
+                        "recommended_fixes",
+                        [],
+                    )
+                )
+
+                if issues:
+
+                    for issue in issues:
+
+                        report.append(
+                            f"- {issue}\n"
+                        )
+
+            # =================================================
+            # REFLECTION
+            # =================================================
+
+            report.append(
+                "## Reflection Insights\n"
+            )
+
+            if reflection_notes:
+
+                for note in reflection_notes:
+
+                    report.append(
+                        f"- {note}\n"
+                    )
+
+            # =================================================
+            # EXECUTION METRICS
+            # =================================================
+
+            report.append(
+                "## Execution Metrics\n"
+            )
+
+            for key, value in metrics.items():
+
+                report.append(
+                    f"- {key}: {value}\n"
+                )
+
+            # =================================================
+            # FINAL RECOMMENDATIONS
+            # =================================================
+
+            report.append(
+                "## Final Recommendations\n"
+            )
+
+            report.append(
+                "- Add CI/CD pipelines\n"
+            )
+
+            report.append(
+                "- Add observability and logging\n"
+            )
+
+            report.append(
+                "- Add integration testing\n"
+            )
+
+            report.append(
+                "- Add production monitoring\n"
+            )
+
+            report.append(
+                "- Add rate limiting and security middleware\n"
+            )
+
+            final_output = "\n".join(
+                report
+            )
+
+            return {
+
+                "success": True,
+
+                "agent":
+                    "aggregator_agent",
+
+                "final_output":
+                    final_output,
+            }
 
         except Exception as e:
 
-            return f"""
-# Aggregation Failed
+            return {
 
-An error occurred while generating the final response.
+                "success": False,
 
-Error:
-{str(e)}
+                "agent":
+                    "aggregator_agent",
 
-Traceback:
-{traceback.format_exc()}
-"""
+                "error":
+                    str(e),
+
+                "traceback":
+                    traceback.format_exc(),
+            }
 
     # ========================================================
-    # SYSTEM PROMPT
+    # FIND AGENT OUTPUT
     # ========================================================
 
-    def _system_prompt(self):
+    def _find_agent_output(
 
-        return """
-You are the Aggregator Agent for CognitiveOS.
+        self,
 
-Your role is to:
-- merge outputs from multiple agents
-- synthesize technical reasoning
-- create coherent final responses
-- generate engineering-grade reports
-- summarize workflow execution
-- produce polished user-facing output
+        agent_outputs,
 
-You think like:
-- Technical Lead
-- Senior Engineering Manager
-- Principal Engineer
-- Solution Architect
+        agent_name,
+    ):
 
-You DO NOT:
-- dump raw JSON
-- repeat redundant outputs
-- expose internal orchestration details unnecessarily
+        for value in agent_outputs.values():
 
-You MUST:
-- create highly structured responses
-- explain architecture clearly
-- summarize implementation decisions
-- explain scalability considerations
-- explain technical tradeoffs
-- include reflection insights
-- produce production-quality output
+            if not isinstance(
+                value,
+                dict,
+            ):
 
-The final response should feel like:
-- a senior engineer designed it
-- a technical architect reviewed it
-- a production engineering team prepared it
+                continue
 
-Structure your response professionally using:
+            if (
+                value.get("agent")
+                == agent_name
+            ):
 
-# Overview
-# Architecture
-# Components
-# APIs
-# Scalability
-# Security
-# Deployment
-# Reflection Insights
-# Final Recommendations
+                return value
 
-Be concise but highly valuable.
-"""
+        return None

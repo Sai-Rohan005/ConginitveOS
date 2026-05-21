@@ -1,22 +1,24 @@
 # domains/softwareEngineering/tools/tool_executor.py
 
 """
-CognitiveOS - Advanced Tool Executor
+CognitiveOS - Autonomous Runtime Tool Executor
 ---------------------------------------------------------
 
 Responsibilities:
-- execute tools
-- manage persistent workspace
-- execute projects
-- install dependencies
-- patch files
+- manage workspace
+- execute generated projects
 - validate runtime execution
-- manage autonomous runtime cognition
+- install dependencies
+- auto-repair runtime failures
+- patch broken files
+- manage execution cognition
+- support autonomous SWE loops
 """
 
 from __future__ import annotations
 
 import os
+import ast
 import time
 import shutil
 import traceback
@@ -32,45 +34,45 @@ from typing import (
 )
 
 # ============================================================
-# TOOL EXECUTION RESULT
+# IMPORT HELPERS
+# ============================================================
+
+from domains.softwareEngineering.utils.import_extractor import (
+    extract_imports,
+)
+
+from domains.softwareEngineering.utils.patch_engine import (
+    PatchEngine,
+)
+
+# ============================================================
+# RESULT
 # ============================================================
 
 
 class ToolExecutionResult:
 
     def __init__(
-
         self,
-
         success: bool,
-
         tool: str,
-
         output: Any = None,
-
         error: Optional[str] = None,
-
         execution_time: Optional[
             float
         ] = None,
-
         artifacts: Optional[
             List
         ] = None,
     ):
 
         self.success = success
-
         self.tool = tool
-
         self.output = output
-
         self.error = error
-
         self.execution_time = (
             execution_time
         )
-
         self.artifacts = (
             artifacts or []
         )
@@ -107,14 +109,10 @@ class ToolExecutionResult:
 class ToolExecutor:
 
     """
-    Runtime execution engine.
+    Autonomous runtime execution engine.
     """
 
     def __init__(self):
-
-        # ====================================================
-        # ROOT WORKSPACE
-        # ====================================================
 
         self.workspace = Path(
             "workspace"
@@ -124,27 +122,19 @@ class ToolExecutor:
             exist_ok=True
         )
 
-        # ====================================================
-        # PERSISTENT PROJECT WORKSPACE
-        # ====================================================
-
         self.project_workspace = (
-
             self.workspace
-
             / "current_project"
         )
 
         self.project_workspace.mkdir(
-
             parents=True,
-
             exist_ok=True,
         )
 
-        # ====================================================
-        # BLOCKED COMMANDS
-        # ====================================================
+        self.patch_engine = (
+            PatchEngine()
+        )
 
         self.blocked_commands = [
 
@@ -159,13 +149,8 @@ class ToolExecutor:
             ":(){ :|:& };:",
         ]
 
-        # ====================================================
-        # TOOL REGISTRY
-        # ====================================================
-
         self.tool_registry = {
 
-            # Runtime
             "python":
                 self.execute_python,
 
@@ -175,7 +160,6 @@ class ToolExecutor:
             "run_project":
                 self.run_project,
 
-            # Filesystem
             "write_file":
                 self.write_file,
 
@@ -185,29 +169,21 @@ class ToolExecutor:
             "patch_file":
                 self.patch_file,
 
-            "list_files":
-                self.list_files,
+            "validate_python":
+                self.validate_python,
 
-            "tree":
+            "auto_install":
+                self.auto_install_dependencies,
+
+            "workspace_tree":
                 self.workspace_tree,
 
-            "create_directory":
-                self.create_directory,
-
-            "delete_path":
-                self.delete_path,
-
-            # Environment
-            "pip_install":
-                self.install_dependencies,
-
-            # Utility
             "reset_workspace":
                 self.reset_workspace,
         }
 
     # ========================================================
-    # MAIN EXECUTION
+    # EXECUTE TOOL
     # ========================================================
 
     async def execute_tool(
@@ -217,19 +193,8 @@ class ToolExecutor:
     ) -> Dict[str, Any]:
 
         print(
-            "\n"
-            + "=" * 80
+            f"\n[TOOL] {tool_name}"
         )
-
-        print(
-            f"[TOOL EXECUTION] {tool_name}"
-        )
-
-        print(
-            "=" * 80
-        )
-
-        print(parameters)
 
         tool = self.tool_registry.get(
             tool_name
@@ -243,13 +208,10 @@ class ToolExecutor:
 
                 tool=tool_name,
 
-                error=(
-                    f"Unknown tool: "
-                    f"{tool_name}"
-                ),
+                error="Unknown tool",
             ).to_dict()
 
-        start_time = time.time()
+        start = time.time()
 
         try:
 
@@ -257,13 +219,8 @@ class ToolExecutor:
                 **parameters
             )
 
-            execution_time = (
-                time.time()
-                - start_time
-            )
-
             result.execution_time = (
-                execution_time
+                time.time() - start
             )
 
             return result.to_dict()
@@ -277,12 +234,213 @@ class ToolExecutor:
                 tool=tool_name,
 
                 error=str(e),
-
-                execution_time=(
-                    time.time()
-                    - start_time
-                ),
             ).to_dict()
+
+    # ========================================================
+    # WRITE FILE
+    # ========================================================
+
+    async def write_file(
+        self,
+        path: str,
+        content: str,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            full_path = (
+                self.project_workspace
+                / path
+            )
+
+            full_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            with open(
+                full_path,
+                "w",
+                encoding="utf-8",
+            ) as f:
+
+                f.write(content)
+
+            return ToolExecutionResult(
+
+                success=True,
+
+                tool="write_file",
+
+                output={
+                    "path": str(full_path)
+                },
+            )
+
+        except Exception as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="write_file",
+
+                error=str(e),
+            )
+
+    # ========================================================
+    # READ FILE
+    # ========================================================
+
+    async def read_file(
+        self,
+        path: str,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            full_path = (
+                self.project_workspace
+                / path
+            )
+
+            with open(
+                full_path,
+                "r",
+                encoding="utf-8",
+            ) as f:
+
+                content = f.read()
+
+            return ToolExecutionResult(
+
+                success=True,
+
+                tool="read_file",
+
+                output={
+                    "content": content
+                },
+            )
+
+        except Exception as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="read_file",
+
+                error=str(e),
+            )
+
+    # ========================================================
+    # VALIDATE PYTHON
+    # ========================================================
+
+    async def validate_python(
+        self,
+        path: str,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            full_path = (
+                self.project_workspace
+                / path
+            )
+
+            with open(
+                full_path,
+                "r",
+                encoding="utf-8",
+            ) as f:
+
+                source = f.read()
+
+            ast.parse(source)
+
+            return ToolExecutionResult(
+
+                success=True,
+
+                tool="validate_python",
+
+                output={
+                    "valid": True
+                },
+            )
+
+        except SyntaxError as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="validate_python",
+
+                error=str(e),
+            )
+
+    # ========================================================
+    # AUTO INSTALL
+    # ========================================================
+
+    async def auto_install_dependencies(
+        self,
+        code: str,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            imports = extract_imports(
+                code
+            )
+
+            installed = []
+
+            for package in imports:
+
+                result = subprocess.run(
+
+                    [
+                        "pip",
+                        "install",
+                        package,
+                    ],
+
+                    capture_output=True,
+                    text=True,
+                )
+
+                installed.append({
+
+                    "package":
+                        package,
+
+                    "success":
+                        result.returncode == 0,
+                })
+
+            return ToolExecutionResult(
+
+                success=True,
+
+                tool="auto_install",
+
+                output=installed,
+            )
+
+        except Exception as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="auto_install",
+
+                error=str(e),
+            )
 
     # ========================================================
     # EXECUTE PYTHON
@@ -310,6 +468,20 @@ class ToolExecutor:
 
                 f.write(code)
 
+            validate = await (
+                self.validate_python(
+                    filename
+                )
+            )
+
+            if not validate.success:
+
+                return validate
+
+            await self.auto_install_dependencies(
+                code
+            )
+
             result = subprocess.run(
 
                 [
@@ -318,19 +490,81 @@ class ToolExecutor:
                 ],
 
                 capture_output=True,
-
                 text=True,
-
                 timeout=timeout,
-
                 cwd=self.project_workspace,
             )
 
+            success = (
+                result.returncode == 0
+            )
+
+            stderr = result.stderr
+
+            # =================================================
+            # AUTO PATCH
+            # =================================================
+
+            if not success:
+
+                repaired_code = (
+                    self.patch_engine
+                    .patch_runtime_error(
+                        original_code=code,
+                        runtime_error=stderr,
+                    )
+                )
+
+                if repaired_code != code:
+
+                    with open(
+                        file_path,
+                        "w",
+                        encoding="utf-8",
+                    ) as f:
+
+                        f.write(
+                            repaired_code
+                        )
+
+                    retry_result = (
+                        subprocess.run(
+                            [
+                                "python",
+                                str(file_path),
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=timeout,
+                            cwd=self.project_workspace,
+                        )
+                    )
+
+                    return ToolExecutionResult(
+
+                        success=(
+                            retry_result.returncode
+                            == 0
+                        ),
+
+                        tool="python",
+
+                        output={
+
+                            "stdout":
+                                retry_result.stdout,
+
+                            "stderr":
+                                retry_result.stderr,
+
+                            "patched":
+                                True,
+                        },
+                    )
+
             return ToolExecutionResult(
 
-                success=(
-                    result.returncode == 0
-                ),
+                success=success,
 
                 tool="python",
 
@@ -344,9 +578,6 @@ class ToolExecutor:
 
                     "return_code":
                         result.returncode,
-
-                    "file":
-                        str(file_path),
                 },
             )
 
@@ -362,7 +593,143 @@ class ToolExecutor:
             )
 
     # ========================================================
-    # EXECUTE SHELL
+    # RUN PROJECT
+    # ========================================================
+
+    async def run_project(
+        self,
+        entry_file: str,
+        timeout: int = 30,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            entry_path = (
+                self.project_workspace
+                / entry_file
+            )
+
+            if not entry_path.exists():
+
+                return ToolExecutionResult(
+
+                    success=False,
+
+                    tool="run_project",
+
+                    error="Entry file missing",
+                )
+
+            result = subprocess.run(
+
+                [
+                    "python",
+                    str(entry_path),
+                ],
+
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=self.project_workspace,
+            )
+
+            return ToolExecutionResult(
+
+                success=(
+                    result.returncode == 0
+                ),
+
+                tool="run_project",
+
+                output={
+
+                    "stdout":
+                        result.stdout,
+
+                    "stderr":
+                        result.stderr,
+
+                    "return_code":
+                        result.returncode,
+                },
+            )
+
+        except Exception as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="run_project",
+
+                error=str(e),
+            )
+
+    # ========================================================
+    # PATCH FILE
+    # ========================================================
+
+    async def patch_file(
+        self,
+        path: str,
+        runtime_error: str,
+    ) -> ToolExecutionResult:
+
+        try:
+
+            full_path = (
+                self.project_workspace
+                / path
+            )
+
+            with open(
+                full_path,
+                "r",
+                encoding="utf-8",
+            ) as f:
+
+                original = f.read()
+
+            patched = (
+                self.patch_engine
+                .patch_runtime_error(
+                    original_code=original,
+                    runtime_error=runtime_error,
+                )
+            )
+
+            with open(
+                full_path,
+                "w",
+                encoding="utf-8",
+            ) as f:
+
+                f.write(patched)
+
+            return ToolExecutionResult(
+
+                success=True,
+
+                tool="patch_file",
+
+                output={
+                    "patched": True
+                },
+            )
+
+        except Exception as e:
+
+            return ToolExecutionResult(
+
+                success=False,
+
+                tool="patch_file",
+
+                error=str(e),
+            )
+
+    # ========================================================
+    # SHELL
     # ========================================================
 
     async def execute_shell(
@@ -385,9 +752,7 @@ class ToolExecutor:
 
                         tool="shell",
 
-                        error=(
-                            "Blocked command"
-                        ),
+                        error="Blocked command",
                     )
 
             result = subprocess.run(
@@ -420,9 +785,6 @@ class ToolExecutor:
 
                     "stderr":
                         result.stderr,
-
-                    "return_code":
-                        result.returncode,
                 },
             )
 
@@ -438,467 +800,6 @@ class ToolExecutor:
             )
 
     # ========================================================
-    # RUN PROJECT
-    # ========================================================
-
-    async def run_project(
-        self,
-        entry_file: str,
-        timeout: int = 30,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            entry_path = (
-                self.project_workspace
-                / entry_file
-            )
-
-            if not entry_path.exists():
-
-                return ToolExecutionResult(
-
-                    success=False,
-
-                    tool="run_project",
-
-                    error=(
-                        "Entry file not found"
-                    ),
-                )
-
-            # =================================================
-            # AUTO INSTALL REQUIREMENTS
-            # =================================================
-
-            requirements_path = (
-                self.project_workspace
-                / "requirements.txt"
-            )
-
-            if requirements_path.exists():
-
-                subprocess.run(
-
-                    [
-                        "pip",
-                        "install",
-                        "-r",
-                        str(requirements_path),
-                    ],
-
-                    capture_output=True,
-
-                    text=True,
-
-                    cwd=self.project_workspace,
-                )
-
-            # =================================================
-            # RUN PROJECT
-            # =================================================
-
-            result = subprocess.run(
-
-                [
-                    "python",
-                    str(entry_path),
-                ],
-
-                capture_output=True,
-
-                text=True,
-
-                timeout=timeout,
-
-                cwd=self.project_workspace,
-            )
-
-            return ToolExecutionResult(
-
-                success=(
-                    result.returncode == 0
-                ),
-
-                tool="run_project",
-
-                output={
-
-                    "stdout":
-                        result.stdout,
-
-                    "stderr":
-                        result.stderr,
-
-                    "return_code":
-                        result.returncode,
-                },
-            )
-
-        except subprocess.TimeoutExpired:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="run_project",
-
-                error=(
-                    "Project execution timeout"
-                ),
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="run_project",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # INSTALL DEPENDENCIES
-    # ========================================================
-
-    async def install_dependencies(
-        self,
-        requirements_file: str = (
-            "requirements.txt"
-        ),
-        timeout: int = 120,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            requirements_path = (
-                self.project_workspace
-                / requirements_file
-            )
-
-            if not requirements_path.exists():
-
-                return ToolExecutionResult(
-
-                    success=False,
-
-                    tool="pip_install",
-
-                    error=(
-                        "requirements.txt not found"
-                    ),
-                )
-
-            result = subprocess.run(
-
-                [
-                    "pip",
-                    "install",
-                    "-r",
-                    str(requirements_path),
-                ],
-
-                capture_output=True,
-
-                text=True,
-
-                timeout=timeout,
-
-                cwd=self.project_workspace,
-            )
-
-            return ToolExecutionResult(
-
-                success=(
-                    result.returncode == 0
-                ),
-
-                tool="pip_install",
-
-                output={
-
-                    "stdout":
-                        result.stdout,
-
-                    "stderr":
-                        result.stderr,
-
-                    "return_code":
-                        result.returncode,
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="pip_install",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # WRITE FILE
-    # ========================================================
-
-    async def write_file(
-        self,
-        path: str,
-        content: str,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            full_path.parent.mkdir(
-
-                parents=True,
-
-                exist_ok=True,
-            )
-
-            with open(
-                full_path,
-                "w",
-                encoding="utf-8",
-            ) as f:
-
-                f.write(content)
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="write_file",
-
-                output={
-
-                    "path":
-                        str(full_path),
-
-                    "size":
-                        len(content),
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="write_file",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # READ FILE
-    # ========================================================
-
-    async def read_file(
-        self,
-        path: str,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            if not full_path.exists():
-
-                return ToolExecutionResult(
-
-                    success=False,
-
-                    tool="read_file",
-
-                    error="File not found",
-                )
-
-            with open(
-                full_path,
-                "r",
-                encoding="utf-8",
-            ) as f:
-
-                content = f.read()
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="read_file",
-
-                output={
-
-                    "path":
-                        str(full_path),
-
-                    "content":
-                        content,
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="read_file",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # PATCH FILE
-    # ========================================================
-
-    async def patch_file(
-        self,
-        path: str,
-        old_text: str,
-        new_text: str,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            if not full_path.exists():
-
-                return ToolExecutionResult(
-
-                    success=False,
-
-                    tool="patch_file",
-
-                    error="File not found",
-                )
-
-            with open(
-                full_path,
-                "r",
-                encoding="utf-8",
-            ) as f:
-
-                content = f.read()
-
-            updated_content = (
-                content.replace(
-                    old_text,
-                    new_text,
-                )
-            )
-
-            with open(
-                full_path,
-                "w",
-                encoding="utf-8",
-            ) as f:
-
-                f.write(
-                    updated_content
-                )
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="patch_file",
-
-                output={
-
-                    "path":
-                        str(full_path),
-
-                    "patched":
-                        True,
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="patch_file",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # LIST FILES
-    # ========================================================
-
-    async def list_files(
-        self,
-        path: str = "",
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            files = []
-
-            for item in full_path.iterdir():
-
-                files.append(
-
-                    {
-
-                        "name":
-                            item.name,
-
-                        "is_dir":
-                            item.is_dir(),
-
-                        "path":
-                            str(item),
-                    }
-                )
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="list_files",
-
-                output=files,
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="list_files",
-
-                error=str(e),
-            )
-
-    # ========================================================
     # WORKSPACE TREE
     # ========================================================
 
@@ -906,159 +807,26 @@ class ToolExecutor:
         self,
     ) -> ToolExecutionResult:
 
-        try:
+        tree = []
 
-            tree = []
+        for path in (
+            self.project_workspace
+            .rglob("*")
+        ):
 
-            for path in (
-                self.project_workspace
-                .rglob("*")
-            ):
+            tree.append(str(path))
 
-                tree.append(
+        return ToolExecutionResult(
 
-                    {
+            success=True,
 
-                        "path":
-                            str(path),
+            tool="workspace_tree",
 
-                        "is_dir":
-                            path.is_dir(),
-                    }
-                )
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="tree",
-
-                output=tree,
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="tree",
-
-                error=str(e),
-            )
+            output=tree,
+        )
 
     # ========================================================
-    # CREATE DIRECTORY
-    # ========================================================
-
-    async def create_directory(
-        self,
-        path: str,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            full_path.mkdir(
-
-                parents=True,
-
-                exist_ok=True,
-            )
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="create_directory",
-
-                output={
-
-                    "path":
-                        str(full_path),
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="create_directory",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # DELETE PATH
-    # ========================================================
-
-    async def delete_path(
-        self,
-        path: str,
-    ) -> ToolExecutionResult:
-
-        try:
-
-            full_path = (
-                self.project_workspace
-                / path
-            )
-
-            if not full_path.exists():
-
-                return ToolExecutionResult(
-
-                    success=False,
-
-                    tool="delete_path",
-
-                    error=(
-                        "Path not found"
-                    ),
-                )
-
-            if full_path.is_file():
-
-                full_path.unlink()
-
-            else:
-
-                shutil.rmtree(
-                    full_path
-                )
-
-            return ToolExecutionResult(
-
-                success=True,
-
-                tool="delete_path",
-
-                output={
-
-                    "deleted":
-                        str(full_path),
-                },
-            )
-
-        except Exception as e:
-
-            return ToolExecutionResult(
-
-                success=False,
-
-                tool="delete_path",
-
-                error=str(e),
-            )
-
-    # ========================================================
-    # RESET WORKSPACE
+    # RESET
     # ========================================================
 
     async def reset_workspace(
@@ -1076,9 +844,7 @@ class ToolExecutor:
                 )
 
             self.project_workspace.mkdir(
-
                 parents=True,
-
                 exist_ok=True,
             )
 
@@ -1088,9 +854,7 @@ class ToolExecutor:
 
                 tool="reset_workspace",
 
-                output=(
-                    "Workspace reset"
-                ),
+                output="Workspace reset",
             )
 
         except Exception as e:

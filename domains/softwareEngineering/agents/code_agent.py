@@ -1,23 +1,32 @@
 # domains/software_engineering/agents/code_agent.py
 
 """
-CognitiveOS - Advanced Code Agent
+CognitiveOS - Deterministic + Self-Healing Code Agent
 ---------------------------------------------------------
 
 Responsibilities:
 - generate production-grade systems
-- create real project structures
 - generate executable codebases
-- write files into workspace
-- execute generated systems
+- create scalable backend systems
+- generate APIs/services/models
 - validate runtime execution
-- create artifacts
-- collaborate using artifacts
+- self-heal runtime failures
+- reduce unnecessary Gemini calls
+- collaborate through artifacts
 
-This agent acts like:
-- Senior Backend Engineer
-- Platform Engineer
-- Staff Software Engineer
+Architecture:
+
+Gemini:
+    - reasoning
+    - semantic implementation
+    - architecture-aware generation
+
+Deterministic Runtime:
+    - project structure
+    - requirements generation
+    - docker generation
+    - execution validation
+    - runtime repair
 """
 
 from __future__ import annotations
@@ -48,6 +57,18 @@ from langchain_core.prompts import (
 
 from langchain_core.output_parsers import (
     JsonOutputParser,
+)
+
+# ============================================================
+# IMPORT RUNTIME SYSTEMS
+# ============================================================
+
+from domains.softwareEngineering.runtime.import_extractor import (
+    ImportExtractor,
+)
+
+from domains.softwareEngineering.runtime.patch_engine import (
+    PatchEngine,
 )
 
 dotenv.load_dotenv()
@@ -96,7 +117,7 @@ class CodeAgentState:
 class CodeAgent:
 
     """
-    Advanced autonomous code generation agent.
+    Self-healing autonomous code generation agent.
     """
 
     def __init__(self):
@@ -161,6 +182,44 @@ Context Artifacts:
             )
         )
 
+        # ====================================================
+        # PROJECT STRUCTURE
+        # ====================================================
+
+        self.default_directories = [
+
+            "app",
+            "app/routes",
+            "app/services",
+            "app/models",
+            "app/core",
+            "app/middleware",
+            "app/utils",
+            "tests",
+        ]
+
+        # ====================================================
+        # IMPORT EXTRACTOR
+        # ====================================================
+
+        self.import_extractor = (
+            ImportExtractor()
+        )
+
+        # ====================================================
+        # PATCH ENGINE
+        # ====================================================
+
+        self.patch_engine = (
+            PatchEngine()
+        )
+
+        # ====================================================
+        # MAX RUNTIME REPAIRS
+        # ====================================================
+
+        self.max_runtime_repairs = 2
+
     # ========================================================
     # MAIN EXECUTION
     # ========================================================
@@ -185,16 +244,12 @@ Context Artifacts:
                 "=" * 80
             )
 
-            # =================================================
-            # TOOL EXECUTOR
-            # =================================================
-
             tool_executor = context.get(
                 "tool_executor"
             )
 
             # =================================================
-            # ARTIFACT REASONING
+            # ARTIFACT COLLABORATION
             # =================================================
 
             context_artifacts = context.get(
@@ -219,7 +274,7 @@ Context Artifacts:
             ]
 
             # =================================================
-            # LLM EXECUTION
+            # GEMINI CALL
             # =================================================
 
             raw_response = await (
@@ -265,7 +320,7 @@ Context Artifacts:
             )
 
             # =================================================
-            # EXTRACT TEXT
+            # EXTRACT RESPONSE TEXT
             # =================================================
 
             response_text = ""
@@ -284,18 +339,6 @@ Context Artifacts:
                 response_text = str(
                     raw_response
                 )
-
-            print(
-                "\nRAW CODE RESPONSE:\n"
-            )
-
-            print(
-                response_text
-            )
-
-            # =================================================
-            # CLEAN JSON
-            # =================================================
 
             response_text = (
 
@@ -323,13 +366,13 @@ Context Artifacts:
             )
 
             print(
-                "\nPARSED CODE RESPONSE:\n"
+                "\nPARSED RESPONSE:\n"
             )
 
             print(response)
 
             # =================================================
-            # EXTRACTION
+            # EXTRACT DATA
             # =================================================
 
             implementation_type = response.get(
@@ -337,11 +380,6 @@ Context Artifacts:
                 "implementation_type",
 
                 "backend_service",
-            )
-
-            tech_stack = response.get(
-                "tech_stack",
-                [],
             )
 
             generated_files = response.get(
@@ -377,22 +415,9 @@ Context Artifacts:
                 "\nCREATING PROJECT STRUCTURE...\n"
             )
 
-            directories = [
-
-                "app",
-
-                "app/routes",
-
-                "app/services",
-
-                "app/models",
-
-                "app/core",
-
-                "tests",
-            ]
-
-            for directory in directories:
+            for directory in (
+                self.default_directories
+            ):
 
                 await tool_executor.execute_tool(
 
@@ -474,12 +499,15 @@ Context Artifacts:
                     )
 
             # =================================================
-            # WRITE REQUIREMENTS
+            # DETERMINISTIC REQUIREMENTS
             # =================================================
 
-            requirements = "\n".join(
+            requirements = (
 
-                tech_stack
+                self.import_extractor
+                .generate_requirements(
+                    generated_files
+                )
             )
 
             await tool_executor.execute_tool(
@@ -492,25 +520,19 @@ Context Artifacts:
                         "requirements.txt",
 
                     "content":
-                        requirements,
+                        "\n".join(
+                            requirements
+                        ),
                 },
             )
 
             # =================================================
-            # WRITE DOCKERFILE
+            # DOCKERFILE
             # =================================================
 
-            dockerfile = """
-FROM python:3.11
-
-WORKDIR /app
-
-COPY . .
-
-RUN pip install -r requirements.txt
-
-CMD ["python", "app/main.py"]
-"""
+            dockerfile = (
+                self._generate_dockerfile()
+            )
 
             await tool_executor.execute_tool(
 
@@ -527,20 +549,44 @@ CMD ["python", "app/main.py"]
             )
 
             # =================================================
-            # WRITE README
+            # DOCKER COMPOSE
             # =================================================
 
-            readme = f"""
-# CognitiveOS Generated Project
+            docker_compose = (
+                self._generate_docker_compose()
+            )
 
-## Tech Stack
+            await tool_executor.execute_tool(
 
-{tech_stack}
+                "write_file",
 
-## APIs
+                {
 
-{api_implementations}
-"""
+                    "path":
+                        "docker-compose.yml",
+
+                    "content":
+                        docker_compose,
+                },
+            )
+
+            # =================================================
+            # README
+            # =================================================
+
+            readme = self._generate_readme(
+
+                query=context.get(
+                    "query",
+                    ""
+                ),
+
+                requirements=requirements,
+
+                api_implementations=(
+                    api_implementations
+                ),
+            )
 
             await tool_executor.execute_tool(
 
@@ -564,59 +610,145 @@ CMD ["python", "app/main.py"]
                 "\nVALIDATING EXECUTION...\n"
             )
 
-            execution_result = await (
-                tool_executor.execute_tool(
-
-                    "run_project",
-
-                    {
-
-                        "entry_file":
-                            "app/main.py"
-                    },
-                )
-            )
-
-            print(
-                "\nEXECUTION RESULT:\n"
-            )
-
-            print(execution_result)
+            execution_result = None
 
             stdout = ""
             stderr = ""
             return_code = -1
 
-            if execution_result.get(
-                "output"
+            runtime_repairs = []
+
+            for attempt in range(
+                self.max_runtime_repairs + 1
             ):
 
-                stdout = (
-                    execution_result[
-                        "output"
-                    ].get(
-                        "stdout",
-                        "",
+                print(
+                    f"\nRUNTIME EXECUTION ATTEMPT: {attempt + 1}"
+                )
+
+                execution_result = await (
+                    tool_executor.execute_tool(
+
+                        "run_project",
+
+                        {
+
+                            "entry_file":
+                                "app/main.py"
+                        },
                     )
                 )
 
-                stderr = (
-                    execution_result[
-                        "output"
-                    ].get(
-                        "stderr",
-                        "",
+                if execution_result.get(
+                    "success",
+                    False,
+                ):
+
+                    print(
+                        "\nEXECUTION SUCCESSFUL"
+                    )
+
+                    break
+
+                # =============================================
+                # EXTRACT STDERR
+                # =============================================
+
+                stderr = ""
+
+                if execution_result.get(
+                    "output"
+                ):
+
+                    stderr = (
+                        execution_result[
+                            "output"
+                        ].get(
+                            "stderr",
+                            "",
+                        )
+                    )
+
+                print(
+                    "\nEXECUTION FAILED"
+                )
+
+                print(stderr)
+
+                # =============================================
+                # PATCH ENGINE
+                # =============================================
+
+                patch_result = await (
+
+                    self.patch_engine
+                    .patch_runtime_failure(
+
+                        file_path=(
+                            tool_executor
+                            .project_workspace
+                            / "app/main.py"
+                        ),
+
+                        stderr=stderr,
                     )
                 )
 
-                return_code = (
-                    execution_result[
-                        "output"
-                    ].get(
-                        "return_code",
-                        -1,
-                    )
+                runtime_repairs.append(
+                    patch_result
                 )
+
+                print(
+                    "\nPATCH RESULT:\n"
+                )
+
+                print(
+                    patch_result
+                )
+
+                if not patch_result.get(
+                    "patched",
+                    False,
+                ):
+
+                    break
+
+            # =================================================
+            # FINAL OUTPUT EXTRACTION
+            # =================================================
+
+            if execution_result:
+
+                if execution_result.get(
+                    "output"
+                ):
+
+                    stdout = (
+                        execution_result[
+                            "output"
+                        ].get(
+                            "stdout",
+                            "",
+                        )
+                    )
+
+                    stderr = (
+                        execution_result[
+                            "output"
+                        ].get(
+                            "stderr",
+                            "",
+                        )
+                    )
+
+                    return_code = (
+                        execution_result[
+                            "output"
+                        ].get(
+                            "return_code",
+                            -1,
+                        )
+                    )
 
             # =================================================
             # FINAL OUTPUT
@@ -632,14 +764,17 @@ CMD ["python", "app/main.py"]
                 "implementation_type":
                     implementation_type,
 
-                "tech_stack":
-                    tech_stack,
-
                 "generated_files":
                     generated_files,
 
                 "written_files":
                     written_files,
+
+                "requirements":
+                    requirements,
+
+                "runtime_repairs":
+                    runtime_repairs,
 
                 "api_implementations":
                     api_implementations,
@@ -665,7 +800,7 @@ CMD ["python", "app/main.py"]
                         execution_result.get(
                             "success",
                             False,
-                        ),
+                        ) if execution_result else False,
                 },
 
                 "reasoning":
@@ -712,136 +847,83 @@ CMD ["python", "app/main.py"]
             }
 
     # ========================================================
-    # SYSTEM PROMPT
+    # DOCKERFILE
     # ========================================================
 
-    def _system_prompt(self):
+    def _generate_dockerfile(
+        self,
+    ):
 
         return """
-You are the Advanced Code Agent for CognitiveOS.
+FROM python:3.11
 
-Your role is to:
-- generate production-grade systems
-- create scalable architectures
-- generate executable projects
-- create modular backends
-- implement APIs
-- generate real project structures
+WORKDIR /app
 
-You think like:
-- Staff Software Engineer
-- Senior Backend Engineer
-- Platform Architect
+COPY . .
 
-Focus on:
-- scalability
-- maintainability
-- modularity
-- production-readiness
-- clean architecture
-- runtime execution
+RUN pip install -r requirements.txt
 
-You MUST generate REAL executable systems.
+EXPOSE 8000
 
-The generated codebase should include:
-- app structure
-- APIs
-- services
-- models
-- configs
-- Docker support
-- requirements
-
-Return ONLY valid JSON.
-
-JSON FORMAT:
-
-{{
-  "implementation_type":
-    "backend_service",
-
-  "tech_stack": [
-
-    "fastapi",
-
-    "uvicorn",
-
-    "pydantic",
-
-    "sqlalchemy"
-  ],
-
-  "generated_files": [
-
-    {{
-
-      "file_path":
-        "app/main.py",
-
-      "purpose":
-        "FastAPI application entrypoint",
-
-      "code":
-        "from fastapi import FastAPI"
-    }},
-
-    {{
-
-      "file_path":
-        "app/routes/chat.py",
-
-      "purpose":
-        "Chat route",
-
-      "code":
-        "from fastapi import APIRouter"
-    }}
-
-  ],
-
-  "api_implementations": [
-
-    {{
-
-      "endpoint":
-        "/chat",
-
-      "method":
-        "POST",
-
-      "description":
-        "Chat endpoint"
-    }}
-
-  ],
-
-  "database_models": [
-
-    {{
-
-      "model":
-        "User",
-
-      "purpose":
-        "Stores user information"
-    }}
-
-  ],
-
-  "deployment_configs": [
-
-    {{
-
-      "file":
-        "Dockerfile",
-
-      "purpose":
-        "Containerization"
-    }}
-
-  ],
-
-  "reasoning":
-    "FastAPI selected for async scalability."
-}}
+CMD ["python", "app/main.py"]
 """
+
+    # ========================================================
+    # DOCKER COMPOSE
+    # ========================================================
+
+    def _generate_docker_compose(
+        self,
+    ):
+
+        return """
+version: '3.9'
+
+services:
+
+  backend:
+
+    build: .
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/app
+"""
+
+    # ========================================================
+    # README
+    # ========================================================
+
+    def _generate_readme(
+
+        self,
+
+        query,
+
+        requirements,
+
+        api_implementations,
+    ):
+
+        return f"""
+# CognitiveOS Generated Backend
+
+## Query
+
+{query}
+
+## Requirements
+
+{requirements}
+
+## APIs
+
+{api_implementations}
+
+## Run Project
+
+bash
+pip install -r requirements.txt
+python app/main.py"""

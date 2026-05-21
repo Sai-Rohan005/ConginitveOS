@@ -1,19 +1,19 @@
 # domains/software_engineering/executor/workflow_executor.py
 
 """
-CognitiveOS - Advanced Workflow Executor
+CognitiveOS - Advanced Autonomous Workflow Executor
 ---------------------------------------------------------
 
 Responsibilities:
 - execute workflow steps
 - orchestrate agents
-- inject tools
-- maintain runtime cognition
-- manage shared memory
+- maintain shared memory
 - maintain artifacts
-- run adaptive reflection loops
-- retry failed executions
-- validate runtime execution
+- runtime validation
+- deterministic debugging
+- patch-based self healing
+- adaptive retry loops
+- artifact-driven cognition
 - aggregate outputs
 
 Cognitive Loop:
@@ -24,11 +24,11 @@ execute
     ↓
 validate
     ↓
-reflect
+repair
     ↓
 retry
     ↓
-improve
+reflect
     ↓
 aggregate
 """
@@ -36,6 +36,7 @@ aggregate
 from __future__ import annotations
 
 import traceback
+import time
 
 from typing import (
     Dict,
@@ -44,7 +45,7 @@ from typing import (
 )
 
 # ============================================================
-# IMPORT AGENTS
+# AGENTS
 # ============================================================
 
 from domains.softwareEngineering.agents.architecture_agent import (
@@ -68,7 +69,7 @@ from domains.softwareEngineering.agents.aggregator_agent import (
 )
 
 # ============================================================
-# IMPORT TOOL EXECUTOR
+# TOOLS
 # ============================================================
 
 from domains.softwareEngineering.tools.tool_executor import (
@@ -76,7 +77,7 @@ from domains.softwareEngineering.tools.tool_executor import (
 )
 
 # ============================================================
-# IMPORT MEMORY
+# MEMORY
 # ============================================================
 
 from domains.softwareEngineering.memory.shared_memory import (
@@ -87,7 +88,7 @@ from domains.softwareEngineering.memory.shared_memory import (
 )
 
 # ============================================================
-# IMPORT ARTIFACT TYPES
+# ARTIFACTS
 # ============================================================
 
 from domains.softwareEngineering.memory.artifacts import (
@@ -95,11 +96,31 @@ from domains.softwareEngineering.memory.artifacts import (
 )
 
 # ============================================================
-# IMPORT SUPERVISOR TYPES
+# SUPERVISOR TYPES
 # ============================================================
 
-from domains.softwareEngineering.supervisor.softwareEngineeringSupervisor import (
+from domains.softwareEngineering.supervisor.software_supervisor import (
     WorkflowStep,
+)
+
+# ============================================================
+# RUNTIME SYSTEMS
+# ============================================================
+
+from domains.softwareEngineering.runtime.runtime_validator import (
+    RuntimeValidator,
+)
+
+from domains.softwareEngineering.runtime.deterministic_debugger import (
+    DeterministicDebugger,
+)
+
+from domains.softwareEngineering.runtime.retry_policy import (
+    RetryPolicy,
+)
+
+from domains.softwareEngineering.runtime.patch_engine import (
+    PatchEngine,
 )
 
 # ============================================================
@@ -148,7 +169,7 @@ class WorkflowExecutor:
     def __init__(self):
 
         # ====================================================
-        # MEMORY MANAGER
+        # MEMORY
         # ====================================================
 
         self.memory_manager = (
@@ -164,13 +185,41 @@ class WorkflowExecutor:
         )
 
         # ====================================================
-        # MAX REFLECTION ITERATIONS
+        # RUNTIME SYSTEMS
         # ====================================================
 
-        self.max_reflection_iterations = 2
+        self.runtime_validator = (
+            RuntimeValidator()
+        )
+
+        self.runtime_debugger = (
+            DeterministicDebugger()
+        )
+
+        self.retry_policy = (
+            RetryPolicy()
+        )
+
+        self.patch_engine = (
+            PatchEngine()
+        )
 
         # ====================================================
-        # AGENT REGISTRY
+        # EXECUTION SETTINGS
+        # ====================================================
+
+        self.max_reflection_iterations = 1
+
+        self.max_retries = 2
+
+        # ====================================================
+        # CACHE
+        # ====================================================
+
+        self.agent_cache = {}
+
+        # ====================================================
+        # AGENTS
         # ====================================================
 
         self.agent_registry = {
@@ -203,10 +252,6 @@ class WorkflowExecutor:
         ],
     ) -> WorkflowExecutionResult:
 
-        # ====================================================
-        # CREATE MEMORY
-        # ====================================================
-
         memory = (
             self.memory_manager
             .create_memory(
@@ -230,7 +275,7 @@ class WorkflowExecutor:
             )
 
             # =================================================
-            # STORE WORKFLOW
+            # SHARED CONTEXT
             # =================================================
 
             memory.shared_context[
@@ -238,15 +283,35 @@ class WorkflowExecutor:
             ] = workflow_steps
 
             memory.shared_context[
+                "execution_mode"
+            ] = "balanced"
+
+            memory.shared_context[
                 "execution_status"
             ] = "executing"
 
             memory.shared_context[
-                "retry_history"
-            ] = {}
+                "metrics"
+            ] = {
+
+                "total_steps":
+                    len(workflow_steps),
+
+                "successful_steps":
+                    0,
+
+                "failed_steps":
+                    0,
+
+                "runtime_repairs":
+                    0,
+
+                "gemini_calls":
+                    0,
+            }
 
             # =================================================
-            # INITIAL EXECUTION
+            # EXECUTION LOOP
             # =================================================
 
             for step in workflow_steps:
@@ -261,6 +326,14 @@ class WorkflowExecutor:
                 )
 
                 print(
+                    f"AGENT: {step.agent}"
+                )
+
+                print(
+                    f"TASK: {step.task}"
+                )
+
+                print(
                     "-" * 80
                 )
 
@@ -272,8 +345,14 @@ class WorkflowExecutor:
                 ):
 
                     print(
-                        "\nDEPENDENCIES NOT SATISFIED"
+                        "\nDEPENDENCIES FAILED"
                     )
+
+                    memory.shared_context[
+                        "metrics"
+                    ][
+                        "failed_steps"
+                    ] += 1
 
                     self.memory_manager.mark_step_failed(
 
@@ -292,17 +371,10 @@ class WorkflowExecutor:
                 )
 
             # =================================================
-            # REFLECTION LOOP
+            # REFLECTION
             # =================================================
 
-            memory.shared_context[
-                "execution_status"
-            ] = "reflecting"
-
-            for iteration in range(
-
-                self.max_reflection_iterations
-            ):
+            if memory.failed_steps:
 
                 print(
                     "\n"
@@ -310,87 +382,26 @@ class WorkflowExecutor:
                 )
 
                 print(
-                    f"REFLECTION ITERATION {iteration + 1}"
+                    "RUNNING REFLECTION"
                 )
 
                 print(
                     "=" * 80
                 )
 
-                reflection_result = await (
-                    self._run_reflection(
-                        memory
-                    )
-                )
-
-                if not reflection_result:
-
-                    print(
-                        "\nNO REFLECTION RESULT"
-                    )
-
-                    break
-
-                retry_required = (
-                    reflection_result.get(
-                        "retry_required",
-                        False,
-                    )
-                )
-
-                if not retry_required:
-
-                    print(
-                        "\nNO RETRY REQUIRED"
-                    )
-
-                    break
-
-                retry_steps = (
-                    reflection_result.get(
-                        "retry_steps",
-                        [],
-                    )
-                )
-
-                print(
-                    "\nRETRY STEPS:\n"
-                )
-
-                print(retry_steps)
-
-                memory.shared_context[
-                    "execution_status"
-                ] = "retrying"
-
-                await self._retry_failed_steps(
-
-                    retry_steps=
-                        retry_steps,
-
-                    workflow_steps=
-                        workflow_steps,
-
-                    memory=memory,
+                await self._run_reflection(
+                    memory
                 )
 
             # =================================================
-            # FINAL AGGREGATION
+            # AGGREGATION
             # =================================================
-
-            memory.shared_context[
-                "execution_status"
-            ] = "aggregating"
 
             final_output = await (
                 self._aggregate_outputs(
                     memory
                 )
             )
-
-            # =================================================
-            # STORE FINAL OUTPUT
-            # =================================================
 
             self.memory_manager.set_final_output(
 
@@ -399,17 +410,9 @@ class WorkflowExecutor:
                 final_output,
             )
 
-            # =================================================
-            # UPDATE STATUS
-            # ====================================================
-
             memory.shared_context[
                 "execution_status"
             ] = "completed"
-
-            # =================================================
-            # EXPORT SNAPSHOT
-            # ====================================================
 
             snapshot = (
 
@@ -444,10 +447,6 @@ class WorkflowExecutor:
                     snapshot
                 ),
             )
-
-        # ====================================================
-        # GLOBAL FAILURE
-        # ====================================================
 
         except Exception as e:
 
@@ -488,7 +487,7 @@ Traceback:
             )
 
     # ========================================================
-    # EXECUTE SINGLE STEP
+    # EXECUTE STEP
     # ========================================================
 
     async def _execute_step(
@@ -509,121 +508,94 @@ Traceback:
                 f"\nUNKNOWN AGENT: {agent_name}"
             )
 
-            self.memory_manager.mark_step_failed(
-
-                memory,
-
-                step.step_id,
-            )
-
             return
 
         try:
 
-            # =================================================
-            # ACTIVE AGENT
-            # =================================================
-
-            self.memory_manager.register_active_agent(
-
-                memory,
-
-                agent_name,
+            cache_key = (
+                f"{memory.query}_{step.task}"
             )
 
-            self.memory_manager.set_current_step(
+            if cache_key in self.agent_cache:
 
-                memory,
+                print(
+                    "\nUSING CACHED OUTPUT"
+                )
 
-                step.step_id,
-            )
+                result = self.agent_cache[
+                    cache_key
+                ]
 
-            # =================================================
-            # EXECUTION TIMELINE
-            # =================================================
+            else:
 
-            memory.shared_context.setdefault(
-                "execution_timeline",
-                [],
-            )
+                context = {
 
-            memory.shared_context[
-                "execution_timeline"
-            ].append(
+                    "query":
+                        memory.query,
 
-                {
+                    "task":
+                        step.task,
 
-                    "event":
-                        "agent_started",
+                    "shared_context":
+                        memory.shared_context,
 
-                    "agent":
-                        agent_name,
+                    "agent_outputs":
+                        memory.agent_outputs,
 
-                    "step":
-                        step.step_id,
+                    "reflection_notes":
+                        memory.reflection_notes,
+
+                    "tool_executor":
+                        self.tool_executor,
+
+                    "context_artifacts":
+                        memory
+                        .artifact_manager
+                        .get_all_artifacts(),
+
+                    "runtime_repairs":
+                        memory
+                        .artifact_manager
+                        .get_artifacts_by_type(
+                            ArtifactType.RUNTIME_REPAIR
+                        ),
                 }
-            )
 
-            # =================================================
-            # CONTEXT ARTIFACTS
-            # =================================================
+                start_time = time.time()
 
-            context_artifacts = (
+                result = await agent.run(
+                    context
+                )
 
-                memory
-                .artifact_manager
-                .get_all_artifacts()
-            )
+                execution_time = (
+                    time.time()
+                    - start_time
+                )
 
-            # =================================================
-            # BUILD CONTEXT
-            # =================================================
+                self.agent_cache[
+                    cache_key
+                ] = result
 
-            context = {
+                if step.agent in [
 
-                "query":
-                    memory.query,
+                    "architecture_agent",
 
-                "task":
-                    step.task,
+                    "code_agent",
 
-                "shared_context":
-                    memory.shared_context,
+                    "debug_agent",
 
-                "agent_outputs":
-                    memory.agent_outputs,
+                    "reflection_agent",
+                ]:
 
-                "reflection_notes":
-                    memory.reflection_notes,
+                    memory.shared_context[
+                        "metrics"
+                    ][
+                        "gemini_calls"
+                    ] += 1
 
-                "tool_executor":
-                    self.tool_executor,
-
-                "retry_context":
-                    memory.shared_context.get(
-                        "retry_context",
-                        {},
-                    ),
-
-                "context_artifacts":
-                    context_artifacts,
-            }
-
-            print(
-                f"\nEXECUTING AGENT: {agent_name}"
-            )
-
-            print(
-                f"TASK: {step.task}"
-            )
-
-            # =================================================
-            # EXECUTE AGENT
-            # =================================================
-
-            result = await agent.run(
-                context
-            )
+                print(
+                    f"\nEXECUTION TIME: {execution_time:.2f}s"
+                )
 
             print(
                 "\nAGENT RESULT:\n"
@@ -632,29 +604,43 @@ Traceback:
             print(result)
 
             # =================================================
-            # STORE WORKSPACE SNAPSHOT
+            # STORE RUNTIME REPAIRS
             # =================================================
 
-            workspace_snapshot = await (
-                self.tool_executor.execute_tool(
-                    "tree",
-                    {},
+            runtime_repairs = result.get(
+                "runtime_repairs",
+                [],
+            )
+
+            for repair in runtime_repairs:
+
+                self.memory_manager.store_artifact(
+
+                    memory=memory,
+
+                    artifact_type=(
+                        ArtifactType.RUNTIME_REPAIR
+                    ),
+
+                    created_by="patch_engine",
+
+                    content=repair,
+
+                    metadata={
+
+                        "step_id":
+                            step.step_id,
+
+                        "agent":
+                            agent_name,
+                    },
                 )
-            )
 
-            self.memory_manager.store_artifact(
-
-                memory=memory,
-
-                artifact_type=
-                    "workspace_snapshot",
-
-                created_by=
-                    agent_name,
-
-                content=
-                    workspace_snapshot,
-            )
+                memory.shared_context[
+                    "metrics"
+                ][
+                    "runtime_repairs"
+                ] += 1
 
             # =================================================
             # STORE OUTPUT
@@ -679,36 +665,23 @@ Traceback:
                 ArtifactType.CODE
             )
 
-            if (
-                agent_name
-                == "architecture_agent"
-            ):
+            if agent_name == "architecture_agent":
 
                 artifact_type = (
                     ArtifactType.ARCHITECTURE
                 )
 
-            elif (
-                agent_name
-                == "debug_agent"
-            ):
+            elif agent_name == "debug_agent":
 
                 artifact_type = (
                     ArtifactType.DEBUG_REPORT
                 )
 
-            elif (
-                agent_name
-                == "reflection_agent"
-            ):
+            elif agent_name == "reflection_agent":
 
                 artifact_type = (
                     ArtifactType.REFLECTION
                 )
-
-            # =================================================
-            # STORE MAIN ARTIFACT
-            # =================================================
 
             self.memory_manager.store_artifact(
 
@@ -720,8 +693,7 @@ Traceback:
                 created_by=
                     agent_name,
 
-                content=
-                    result,
+                content=result,
 
                 metadata={
 
@@ -732,6 +704,60 @@ Traceback:
                         step.task,
                 },
             )
+
+            # =================================================
+            # VALIDATE PYTHON FILES
+            # =================================================
+
+            generated_files = result.get(
+                "generated_files",
+                []
+            )
+
+            for generated_file in generated_files:
+
+                file_path = (
+                    generated_file.get(
+                        "file_path",
+                        ""
+                    )
+                )
+
+                if not file_path.endswith(
+                    ".py"
+                ):
+
+                    continue
+
+                validation = await (
+                    self.runtime_validator
+                    .validate_python_file(
+                        f"workspace/current_project/{file_path}"
+                    )
+                )
+
+                print(
+                    "\nVALIDATION RESULT:\n"
+                )
+
+                print(validation)
+
+                if not validation.get(
+                    "success"
+                ):
+
+                    await self._handle_runtime_failure(
+
+                        stderr=
+                            validation.get(
+                                "error",
+                                ""
+                            ),
+
+                        step=step,
+
+                        memory=memory,
+                    )
 
             # =================================================
             # EXECUTION VALIDATION
@@ -746,202 +772,33 @@ Traceback:
 
             if execution_validation:
 
-                stdout = (
-                    execution_validation.get(
-                        "stdout",
-                        "",
-                    )
-                )
-
                 stderr = (
                     execution_validation.get(
                         "stderr",
-                        "",
+                        ""
                     )
                 )
 
                 return_code = (
                     execution_validation.get(
                         "return_code",
-                        -1,
+                        0,
                     )
                 )
-
-                # =============================================
-                # STORE EXECUTION ARTIFACT
-                # =============================================
-
-                self.memory_manager.store_execution_artifact(
-
-                    memory=memory,
-
-                    created_by=
-                        agent_name,
-
-                    stdout=
-                        stdout,
-
-                    stderr=
-                        stderr,
-
-                    return_code=
-                        return_code,
-                )
-
-                # =============================================
-                # AUTO DEBUGGING
-                # =============================================
 
                 if stderr or return_code != 0:
 
-                    print(
-                        "\n"
-                        + "=" * 80
-                    )
+                    await self._handle_runtime_failure(
 
-                    print(
-                        "RUNTIME FAILURE DETECTED"
-                    )
+                        stderr=stderr,
 
-                    print(
-                        "=" * 80
-                    )
-
-                    print(stderr)
-
-                    memory.shared_context[
-                        "execution_timeline"
-                    ].append(
-
-                        {
-
-                            "event":
-                                "runtime_failure",
-
-                            "agent":
-                                agent_name,
-
-                            "step":
-                                step.step_id,
-
-                            "stderr":
-                                stderr,
-                        }
-                    )
-
-                    # =========================================
-                    # DEBUG STEP
-                    # =========================================
-
-                    debug_step = WorkflowStep(
-
-                        step_id=999,
-
-                        agent="debug_agent",
-
-                        task=(
-                            "Debug runtime failures "
-                            "and patch implementation"
-                        ),
-
-                        dependencies=[],
-
-                        parallelizable=False,
-
-                        expected_output=(
-                            "Patched production-ready system"
-                        ),
-                    )
-
-                    await self._execute_step(
-
-                        debug_step,
-
-                        memory,
-                    )
-
-                    # =========================================
-                    # RE-RUN PROJECT
-                    # =========================================
-
-                    print(
-                        "\nRE-RUNNING PROJECT AFTER PATCH\n"
-                    )
-
-                    rerun_result = await (
-                        self.tool_executor.execute_tool(
-
-                            "run_project",
-
-                            {
-
-                                "entry_file":
-                                    "app/main.py"
-                            },
-                        )
-                    )
-
-                    print(
-                        "\nRERUN RESULT:\n"
-                    )
-
-                    print(rerun_result)
-
-                    rerun_output = (
-                        rerun_result.get(
-                            "output",
-                            {}
-                        )
-                    )
-
-                    self.memory_manager.store_execution_artifact(
+                        step=step,
 
                         memory=memory,
-
-                        created_by=
-                            "runtime_validator",
-
-                        stdout=
-                            rerun_output.get(
-                                "stdout",
-                                "",
-                            ),
-
-                        stderr=
-                            rerun_output.get(
-                                "stderr",
-                                "",
-                            ),
-
-                        return_code=
-                            rerun_output.get(
-                                "return_code",
-                                -1,
-                            ),
-                    )
-
-                    memory.shared_context[
-                        "execution_timeline"
-                    ].append(
-
-                        {
-
-                            "event":
-                                "project_rerun",
-
-                            "step":
-                                step.step_id,
-
-                            "success":
-                                rerun_result.get(
-                                    "success",
-                                    False,
-                                ),
-                        }
                     )
 
             # =================================================
-            # MARK COMPLETE
+            # SUCCESS
             # =================================================
 
             self.memory_manager.mark_step_completed(
@@ -951,87 +808,16 @@ Traceback:
                 step.step_id,
             )
 
-            # =================================================
-            # EXECUTION LOG
-            # =================================================
-
-            self.memory_manager.store_execution_log(
-
-                memory=memory,
-
-                step_id=
-                    step.step_id,
-
-                agent=
-                    agent_name,
-
-                status=
-                    "completed",
-
-                details={
-
-                    "task":
-                        step.task,
-                },
-            )
-
-            # =================================================
-            # EXECUTION TIMELINE
-            # =================================================
-
             memory.shared_context[
-                "execution_timeline"
-            ].append(
-
-                {
-
-                    "event":
-                        "agent_completed",
-
-                    "agent":
-                        agent_name,
-
-                    "step":
-                        step.step_id,
-                }
-            )
-
-            # =================================================
-            # REMOVE ACTIVE AGENT
-            # =================================================
-
-            self.memory_manager.remove_active_agent(
-
-                memory,
-
-                agent_name,
-            )
-
-        # ====================================================
-        # FAILURE HANDLING
-        # ====================================================
+                "metrics"
+            ][
+                "successful_steps"
+            ] += 1
 
         except Exception as e:
 
             print(
-                "\n"
-                + "=" * 80
-            )
-
-            print(
-                "AGENT EXECUTION FAILED"
-            )
-
-            print(
-                "=" * 80
-            )
-
-            print(
-                f"Agent: {agent_name}"
-            )
-
-            print(
-                f"Step: {step.step_id}"
+                "\nSTEP EXECUTION FAILED\n"
             )
 
             print(str(e))
@@ -1041,24 +827,10 @@ Traceback:
             )
 
             memory.shared_context[
-                "execution_timeline"
-            ].append(
-
-                {
-
-                    "event":
-                        "agent_failed",
-
-                    "agent":
-                        agent_name,
-
-                    "step":
-                        step.step_id,
-
-                    "error":
-                        str(e),
-                }
-            )
+                "metrics"
+            ][
+                "failed_steps"
+            ] += 1
 
             self.memory_manager.mark_step_failed(
 
@@ -1067,22 +839,172 @@ Traceback:
                 step.step_id,
             )
 
-            self.memory_manager.store_execution_log(
+    # ========================================================
+    # HANDLE RUNTIME FAILURE
+    # ========================================================
+
+    async def _handle_runtime_failure(
+        self,
+        stderr: str,
+        step: WorkflowStep,
+        memory: SharedMemory,
+    ):
+
+        print(
+            "\n"
+            + "=" * 80
+        )
+
+        print(
+            "RUNTIME FAILURE DETECTED"
+        )
+
+        print(
+            "=" * 80
+        )
+
+        print(stderr)
+
+        # ====================================================
+        # PATCH ENGINE
+        # ====================================================
+
+        patch_result = await (
+            self.patch_engine
+            .patch_runtime_failure(
+
+                file_path=(
+                    "workspace/current_project/app/main.py"
+                ),
+
+                stderr=stderr,
+            )
+        )
+
+        print(
+            "\nPATCH ENGINE RESULT:\n"
+        )
+
+        print(
+            patch_result
+        )
+
+        if patch_result.get(
+            "patched",
+            False,
+        ):
+
+            self.memory_manager.store_artifact(
 
                 memory=memory,
 
-                step_id=step.step_id,
+                artifact_type=(
+                    ArtifactType.RUNTIME_REPAIR
+                ),
 
-                agent=agent_name,
+                created_by="patch_engine",
 
-                status="failed",
-
-                details={
-
-                    "error":
-                        str(e),
-                },
+                content=patch_result,
             )
+
+            print(
+                "\nPATCH ENGINE SUCCESSFULLY REPAIRED FAILURE"
+            )
+
+            return
+
+        # ====================================================
+        # DETERMINISTIC DEBUGGING
+        # ====================================================
+
+        deterministic_result = await (
+            self.runtime_debugger
+            .debug_runtime_failure(
+                stderr
+            )
+        )
+
+        print(
+            "\nDETERMINISTIC DEBUG RESULT:\n"
+        )
+
+        print(deterministic_result)
+
+        if deterministic_result.get(
+            "resolved"
+        ):
+
+            print(
+                "\nAUTO-RECOVERY SUCCESSFUL"
+            )
+
+            memory.shared_context[
+                "metrics"
+            ][
+                "runtime_repairs"
+            ] += 1
+
+            return
+
+        # ====================================================
+        # RETRY POLICY
+        # ====================================================
+
+        should_retry = (
+            self.retry_policy
+            .should_retry(
+                stderr=stderr,
+                retry_count=1,
+            )
+        )
+
+        if not should_retry:
+
+            print(
+                "\nNO RETRY REQUIRED"
+            )
+
+            return
+
+        # ====================================================
+        # ESCALATE TO DEBUG AGENT
+        # ====================================================
+
+        print(
+            "\nESCALATING TO DEBUG AGENT"
+        )
+
+        memory.shared_context[
+            "latest_runtime_failure"
+        ] = stderr
+
+        debug_step = WorkflowStep(
+
+            step_id=999,
+
+            agent="debug_agent",
+
+            task=(
+                "Fix runtime failures "
+                "and improve production stability"
+            ),
+
+            dependencies=[],
+
+            parallelizable=False,
+
+            expected_output=(
+                "Patched implementation"
+            ),
+        )
+
+        await self._execute_step(
+
+            debug_step,
+
+            memory,
+        )
+
     # ========================================================
     # REFLECTION
     # ========================================================
@@ -1100,7 +1022,7 @@ Traceback:
 
         if not reflection_agent:
 
-            return None
+            return
 
         try:
 
@@ -1113,14 +1035,19 @@ Traceback:
                     memory.agent_outputs,
 
                 "artifacts":
-                    (
-                        memory
-                        .artifact_manager
-                        .get_all_artifacts()
+                    memory
+                    .artifact_manager
+                    .get_all_artifacts(),
+
+                "runtime_repairs":
+                    memory
+                    .artifact_manager
+                    .get_artifacts_by_type(
+                        ArtifactType.RUNTIME_REPAIR
                     ),
             }
 
-            reflection_result = await (
+            result = await (
                 reflection_agent.run(
                     reflection_input
                 )
@@ -1130,45 +1057,14 @@ Traceback:
                 "\nREFLECTION RESULT:\n"
             )
 
-            print(reflection_result)
+            print(result)
 
             self.memory_manager.store_reflection(
 
                 memory,
 
-                str(reflection_result),
+                str(result),
             )
-
-            self.memory_manager.store_reflection_artifact(
-
-                memory=memory,
-
-                created_by=
-                    "reflection_agent",
-
-                content=
-                    reflection_result,
-
-                retry_required=
-                    reflection_result.get(
-                        "retry_required",
-                        False,
-                    ),
-
-                retry_steps=
-                    reflection_result.get(
-                        "retry_steps",
-                        [],
-                    ),
-
-                quality_score=
-                    reflection_result.get(
-                        "quality_score",
-                        "medium",
-                    ),
-            )
-
-            return reflection_result
 
         except Exception as e:
 
@@ -1177,117 +1073,6 @@ Traceback:
             )
 
             print(str(e))
-
-            return None
-
-    # ========================================================
-    # RETRY LOOP
-    # ========================================================
-
-    async def _retry_failed_steps(
-        self,
-        retry_steps,
-        workflow_steps,
-        memory,
-    ):
-
-        step_lookup = {
-
-            step.step_id: step
-
-            for step in workflow_steps
-        }
-
-        retry_history = (
-            memory.shared_context.get(
-                "retry_history",
-                {},
-            )
-        )
-
-        for retry in retry_steps:
-
-            step_id = retry.get(
-                "step_id"
-            )
-
-            improvement_action = retry.get(
-                "improvement_action",
-                "",
-            )
-
-            retry_count = retry_history.get(
-                step_id,
-                0,
-            )
-
-            # =================================================
-            # PREVENT INFINITE RETRIES
-            # =================================================
-
-            if retry_count >= 2:
-
-                print(
-                    f"\nSKIPPING STEP {step_id}"
-                )
-
-                continue
-
-            retry_history[
-                step_id
-            ] = retry_count + 1
-
-            step = step_lookup.get(
-                step_id
-            )
-
-            if not step:
-                continue
-
-            # =================================================
-            # STORE RETRY CONTEXT
-            # =================================================
-
-            memory.shared_context[
-                "retry_context"
-            ] = {
-
-                "step_id":
-                    step_id,
-
-                "improvement_action":
-                    improvement_action,
-            }
-
-            # =================================================
-            # EXECUTION LOG
-            # =================================================
-
-            self.memory_manager.store_execution_log(
-
-                memory=memory,
-
-                step_id=step_id,
-
-                agent=step.agent,
-
-                status="retrying",
-
-                details={
-
-                    "improvement_action":
-                        improvement_action,
-                },
-            )
-
-            print(
-                f"\nRETRYING STEP {step_id}"
-            )
-
-            await self._execute_step(
-                step,
-                memory,
-            )
 
     # ========================================================
     # AGGREGATION
@@ -1320,24 +1105,24 @@ Traceback:
                 "agent_outputs":
                     memory.agent_outputs,
 
-                "reflection_notes":
-                    memory.reflection_notes,
-
                 "artifacts":
-                    (
-                        memory
-                        .artifact_manager
-                        .get_all_artifacts()
+                    memory
+                    .artifact_manager
+                    .get_all_artifacts(),
+
+                "runtime_repairs":
+                    memory
+                    .artifact_manager
+                    .get_artifacts_by_type(
+                        ArtifactType.RUNTIME_REPAIR
+                    ),
+
+                "metrics":
+                    memory.shared_context.get(
+                        "metrics",
+                        {},
                     ),
             }
-
-            print(
-                "\nAGGREGATION INPUT:\n"
-            )
-
-            print(
-                aggregation_input
-            )
 
             result = await (
                 aggregator.run(
@@ -1346,17 +1131,10 @@ Traceback:
             )
 
             print(
-                "\nFINAL AGGREGATED OUTPUT:\n"
+                "\nFINAL OUTPUT:\n"
             )
 
             print(result)
-
-            if isinstance(
-                result,
-                str,
-            ):
-
-                return result
 
             if isinstance(
                 result,

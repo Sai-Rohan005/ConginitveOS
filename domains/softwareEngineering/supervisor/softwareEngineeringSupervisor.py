@@ -1,24 +1,22 @@
 # domains/software_engineering/supervisor/software_supervisor.py
 
 """
-CognitiveOS - Software Engineering Supervisor
+CognitiveOS - Deterministic Software Supervisor
 ---------------------------------------------------------
 
 Responsibilities:
 - convert planner goals into execution workflows
-- assign specialized agents
-- determine execution ordering
-- manage orchestration strategy
-- prepare runtime execution graph
+- assign agents deterministically
+- define dependencies
+- orchestrate runtime cognition
 
-This is orchestration intelligence.
+NO LLM CALLS.
+NO GEMINI.
+
+This is pure orchestration logic.
 """
 
 from __future__ import annotations
-
-import os
-import traceback
-import dotenv
 
 from dataclasses import (
     dataclass,
@@ -30,24 +28,6 @@ from typing import (
     Dict,
     Any,
     Optional,
-)
-
-from langchain_google_genai import (
-    ChatGoogleGenerativeAI,
-)
-
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-)
-
-from langchain_core.output_parsers import (
-    JsonOutputParser,
-)
-
-dotenv.load_dotenv()
-
-api_key = os.getenv(
-    "GOOGLE_API_KEY"
 )
 
 # ============================================================
@@ -113,53 +93,12 @@ class SoftwareSupervisorState:
 class SoftwareSupervisor:
 
     """
-    CognitiveOS Software Supervisor
+    Deterministic orchestration engine.
     """
 
     def __init__(self):
 
-        self.model = os.getenv(
-            "GOOGLE_MODEL",
-            "gemini-2.0-flash",
-        )
-
-        self.llm = ChatGoogleGenerativeAI(
-
-            model=self.model,
-
-            google_api_key=api_key,
-
-            temperature=0.1,
-        )
-
-        self.parser = JsonOutputParser()
-
-        # ====================================================
-        # PROMPT
-        # ====================================================
-
-        self.prompt = (
-            ChatPromptTemplate.from_messages(
-                [
-
-                    (
-                        "system",
-                        self._system_prompt(),
-                    ),
-
-                    (
-                        "human",
-                        """
-User Query:
-{query}
-
-Planner Output:
-{planner_output}
-                        """,
-                    ),
-                ]
-            )
-        )
+        pass
 
     # ========================================================
     # MAIN EXECUTION
@@ -172,396 +111,261 @@ Planner Output:
 
         try:
 
-            # ====================================================
-            # RAW LLM CALL
-            # ====================================================
+            print(
+                "\n"
+                + "=" * 80
+            )
 
-            raw_response = await (
-                self.prompt
-                | self.llm
-            ).ainvoke(
+            print(
+                "DETERMINISTIC SUPERVISOR STARTED"
+            )
 
-                {
+            print(
+                "=" * 80
+            )
 
-                    "query":
-                        state.query,
+            planner_output = (
+                state.planner_output
+            )
 
-                    "planner_output":
-                        str(
-                            state.planner_output
+            query = (
+                state.query.lower()
+            )
+
+            workflow_steps = []
+
+            step_id = 1
+
+            # =================================================
+            # ALWAYS START WITH ARCHITECTURE
+            # =================================================
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent=
+                        "architecture_agent",
+
+                    task=
+                        "Design scalable system architecture",
+
+                    dependencies=[],
+
+                    parallelizable=False,
+
+                    expected_output=
+                        "Production architecture design",
+                )
+            )
+
+            architecture_step = step_id
+
+            step_id += 1
+
+            # =================================================
+            # CODE GENERATION
+            # =================================================
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent=
+                        "code_agent",
+
+                    task=
+                        self._determine_code_task(
+                            query
                         ),
-                }
-            )
 
-            # ====================================================
-            # EXTRACT RESPONSE TEXT
-            # ====================================================
+                    dependencies=[
+                        architecture_step
+                    ],
 
-            response_text = ""
+                    parallelizable=False,
 
-            if hasattr(
-                raw_response,
-                "content"
-            ):
-
-                response_text = (
-                    raw_response.content
-                )
-
-            else:
-
-                response_text = str(
-                    raw_response
-                )
-
-            # ====================================================
-            # RAW RESPONSE DEBUG
-            # ====================================================
-
-            print(
-                "\n"
-                + "=" * 80
-            )
-
-            print(
-                "SUPERVISOR RAW RESPONSE"
-            )
-
-            print(
-                "=" * 80
-            )
-
-            print(
-                response_text
-            )
-
-            # ====================================================
-            # CLEAN JSON
-            # ====================================================
-
-            response_text = (
-                response_text
-                .replace(
-                    "```json",
-                    "",
-                )
-                .replace(
-                    "```",
-                    "",
-                )
-                .strip()
-            )
-
-            print(
-                "\nCLEANED RESPONSE:\n"
-            )
-
-            print(
-                response_text
-            )
-
-            # ====================================================
-            # PARSE JSON
-            # ====================================================
-
-            response = self.parser.parse(
-                response_text
-            )
-
-            print(
-                "\nPARSED RESPONSE:\n"
-            )
-
-            print(
-                response
-            )
-
-            # ====================================================
-            # SAFE DEFAULTS
-            # ====================================================
-
-            workflow = response.get(
-                "workflow_steps",
-                []
-            )
-
-            orchestration_strategy = (
-                response.get(
-                    "orchestration_strategy",
-                    "Sequential execution",
+                    expected_output=
+                        "Production-ready implementation",
                 )
             )
 
-            requires_reflection = (
-                response.get(
-                    "requires_reflection",
-                    True,
+            code_step = step_id
+
+            step_id += 1
+
+            # =================================================
+            # DEBUG STEP
+            # =================================================
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent=
+                        "debug_agent",
+
+                    task=
+                        "Validate runtime stability and production readiness",
+
+                    dependencies=[
+                        code_step
+                    ],
+
+                    parallelizable=False,
+
+                    expected_output=
+                        "Runtime validation report",
                 )
             )
 
-            execution_order = response.get(
-                "execution_order",
-                [],
+            debug_step = step_id
+
+            step_id += 1
+
+            # =================================================
+            # AGGREGATION STEP
+            # =================================================
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent=
+                        "aggregator_agent",
+
+                    task=
+                        "Aggregate all outputs into final response",
+
+                    dependencies=[
+                        debug_step
+                    ],
+
+                    parallelizable=False,
+
+                    expected_output=
+                        "Final aggregated response",
+                )
             )
 
-            parsed_steps = []
-
-            # ====================================================
-            # PARSE WORKFLOW STEPS
-            # ====================================================
-
-            if isinstance(
-                workflow,
-                list,
-            ):
-
-                for idx, step in enumerate(
-                    workflow
-                ):
-
-                    try:
-
-                        workflow_step = (
-                            WorkflowStep(
-
-                                step_id=step.get(
-                                    "step_id",
-                                    idx + 1,
-                                ),
-
-                                agent=step.get(
-                                    "agent",
-                                    "code_agent",
-                                ),
-
-                                task=step.get(
-                                    "task",
-                                    "",
-                                ),
-
-                                dependencies=step.get(
-                                    "dependencies",
-                                    [],
-                                ),
-
-                                parallelizable=step.get(
-                                    "parallelizable",
-                                    False,
-                                ),
-
-                                expected_output=step.get(
-                                    "expected_output",
-                                    "",
-                                ),
-                            )
-                        )
-
-                        parsed_steps.append(
-                            workflow_step
-                        )
-
-                        print(
-                            "\nPARSED STEP:\n"
-                        )
-
-                        print(
-                            workflow_step
-                        )
-
-                    except Exception as e:
-
-                        print(
-                            "\nSTEP PARSE FAILED\n"
-                        )
-
-                        print(
-                            str(e)
-                        )
-
-                        continue
-
-            # ====================================================
-            # FINAL DEBUG
-            # ====================================================
-
-            print(
-                "\n"
-                + "=" * 80
-            )
-
-            print(
-                "FINAL PARSED WORKFLOW"
-            )
-
-            print(
-                "=" * 80
-            )
-
-            for step in parsed_steps:
-
-                print(step)
-
-            # ====================================================
+            # =================================================
             # UPDATE STATE
-            # ====================================================
+            # =================================================
 
             state.workflow_steps = (
-                parsed_steps
+                workflow_steps
             )
 
             state.orchestration_strategy = (
-                orchestration_strategy
+                "Deterministic sequential orchestration"
             )
 
-            state.requires_reflection = (
-                requires_reflection
+            state.requires_reflection = True
+
+            state.estimated_execution_order = [
+
+                step.step_id
+
+                for step in workflow_steps
+            ]
+
+            state.output = {
+
+                "success": True,
+
+                "workflow_steps":
+                    [
+
+                        step.__dict__
+
+                        for step in workflow_steps
+                    ],
+            }
+
+            print(
+                "\nFINAL WORKFLOW:\n"
             )
 
-            state.estimated_execution_order = (
-                execution_order
-            )
+            for step in workflow_steps:
 
-            state.output = response
+                print(step)
 
             return state
 
-        # ========================================================
-        # ERROR HANDLING
-        # ========================================================
-
         except Exception as e:
-
-            print(
-                "\n"
-                + "=" * 80
-            )
-
-            print(
-                "SUPERVISOR FAILED"
-            )
-
-            print(
-                "=" * 80
-            )
-
-            print(
-                str(e)
-            )
-
-            print(
-                traceback.format_exc()
-            )
 
             state.output = {
 
                 "success": False,
 
-                "error":
-                    str(e),
-
-                "traceback":
-                    traceback.format_exc(),
+                "error": str(e),
             }
 
             return state
 
     # ========================================================
-    # SYSTEM PROMPT
+    # DETERMINE CODE TASK
     # ========================================================
 
-    def _system_prompt(self):
+    def _determine_code_task(
+        self,
+        query: str,
+    ) -> str:
 
-        return """
-You are the Software Engineering Supervisor for CognitiveOS.
+        query = query.lower()
 
-Your role is to:
-- orchestrate execution workflows
-- assign specialized agents
-- determine execution order
-- define dependencies
-- coordinate software engineering cognition
+        # ====================================================
+        # FASTAPI
+        # ====================================================
 
-You DO NOT solve the task yourself.
+        if "fastapi" in query:
 
-You ONLY:
-- build execution workflows
-- coordinate agent execution strategy
+            return (
+                "Build scalable FastAPI backend system"
+            )
 
-Available Agents:
+        # ====================================================
+        # DJANGO
+        # ====================================================
 
-1. architecture_agent
-2. code_agent
-3. debug_agent
-4. reflection_agent
-5. aggregator_agent
+        if "django" in query:
 
-You must think like:
-- Engineering Manager
-- Technical Lead
-- AI Orchestrator
+            return (
+                "Build scalable Django backend system"
+            )
 
-Return ONLY valid JSON.
+        # ====================================================
+        # WEBSOCKET
+        # ====================================================
 
-JSON FORMAT:
+        if "websocket" in query:
 
-{{
-  "orchestration_strategy":
-    "Sequential architecture-first execution",
+            return (
+                "Implement realtime websocket system"
+            )
 
-  "requires_reflection": true,
+        # ====================================================
+        # AUTH
+        # ====================================================
 
-  "execution_order": [1, 2, 3, 4],
+        if "jwt" in query:
 
-  "workflow_steps": [
+            return (
+                "Implement JWT authentication backend"
+            )
 
-    {{
-      "step_id": 1,
+        # ====================================================
+        # DEFAULT
+        # ====================================================
 
-      "agent": "architecture_agent",
-
-      "task":
-        "Design scalable backend architecture",
-
-      "dependencies": [],
-
-      "parallelizable": false,
-
-      "expected_output":
-        "Architecture specification"
-    }},
-
-    {{
-      "step_id": 2,
-
-      "agent": "code_agent",
-
-      "task":
-        "Implement websocket backend",
-
-      "dependencies": [1],
-
-      "parallelizable": false,
-
-      "expected_output":
-        "Production-ready backend code"
-    }},
-
-    {{
-      "step_id": 3,
-
-      "agent": "debug_agent",
-
-      "task":
-        "Validate backend implementation",
-
-      "dependencies": [2],
-
-      "parallelizable": false,
-
-      "expected_output":
-        "Debugging and validation report"
-    }}
-
-  ]
-}}
-"""
+        return (
+            "Implement production-ready software system"
+        )

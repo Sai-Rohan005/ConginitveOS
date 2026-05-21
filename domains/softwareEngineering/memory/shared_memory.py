@@ -1,21 +1,21 @@
 # domains/software_engineering/memory/shared_memory.py
 
 """
-CognitiveOS - Shared Memory
+CognitiveOS - Advanced Shared Memory
 ---------------------------------------------------------
 
 Responsibilities:
-- maintain workflow state
-- store agent outputs
+- maintain workflow cognition
 - preserve execution history
-- maintain shared context
-- support inter-agent communication
-- track artifacts
-- store reflections
-- maintain execution logs
+- enable inter-agent collaboration
+- store artifacts
+- track runtime repairs
+- track patch history
+- maintain execution metrics
+- support autonomous retries
+- maintain workspace intelligence
 
-This becomes the cognitive workspace
-for the entire workflow runtime.
+This becomes the REAL cognitive workspace.
 """
 
 from __future__ import annotations
@@ -104,6 +104,10 @@ class SharedMemory:
         default_factory=list
     )
 
+    retry_count: int = 0
+
+    max_retries: int = 3
+
     # ========================================================
     # AGENT OUTPUTS
     # ========================================================
@@ -123,7 +127,7 @@ class SharedMemory:
     ] = field(default_factory=dict)
 
     # ========================================================
-    # ARTIFACT MANAGER
+    # ARTIFACTS
     # ========================================================
 
     artifact_manager: ArtifactManager = field(
@@ -131,7 +135,7 @@ class SharedMemory:
     )
 
     # ========================================================
-    # REFLECTION
+    # REFLECTIONS
     # ========================================================
 
     reflection_notes: List[
@@ -145,6 +149,63 @@ class SharedMemory:
     execution_logs: List[
         ExecutionLog
     ] = field(default_factory=list)
+
+    # ========================================================
+    # RUNTIME REPAIRS
+    # ========================================================
+
+    runtime_repairs: List[
+        Dict[str, Any]
+    ] = field(default_factory=list)
+
+    # ========================================================
+    # PATCH HISTORY
+    # ========================================================
+
+    patch_history: List[
+        Dict[str, Any]
+    ] = field(default_factory=list)
+
+    # ========================================================
+    # DEPENDENCY INSTALLS
+    # ========================================================
+
+    installed_dependencies: List[
+        str
+    ] = field(default_factory=list)
+
+    # ========================================================
+    # EXECUTION METRICS
+    # ========================================================
+
+    metrics: Dict[
+        str,
+        Any,
+    ] = field(
+        default_factory=lambda: {
+
+            "steps_executed": 0,
+
+            "successful_steps": 0,
+
+            "failed_steps": 0,
+
+            "runtime_repairs": 0,
+
+            "patches_applied": 0,
+
+            "execution_time_seconds": 0,
+        }
+    )
+
+    # ========================================================
+    # WORKSPACE STATE
+    # ========================================================
+
+    workspace_snapshot: Dict[
+        str,
+        Any,
+    ] = field(default_factory=dict)
 
     # ========================================================
     # FINAL OUTPUT
@@ -170,7 +231,7 @@ class SharedMemory:
 class SharedMemoryManager:
 
     """
-    Centralized cognitive memory manager.
+    Advanced cognitive memory manager.
     """
 
     # ========================================================
@@ -200,10 +261,15 @@ class SharedMemoryManager:
     # ========================================================
 
     def store_agent_output(
+
         self,
+
         memory: SharedMemory,
+
         step_id: int,
+
         agent: str,
+
         output: Any,
     ):
 
@@ -211,55 +277,99 @@ class SharedMemoryManager:
             f"step_{step_id}"
         ] = {
 
-            "agent": agent,
+            "agent":
+                agent,
 
-            "output": output,
+            "output":
+                output,
 
             "timestamp":
                 datetime.utcnow().isoformat(),
         }
 
+        memory.metrics[
+            "steps_executed"
+        ] += 1
+
     # ========================================================
-    # GET AGENT OUTPUT
+    # STORE RUNTIME REPAIR
     # ========================================================
 
-    def get_agent_output(
+    def store_runtime_repair(
+
         self,
+
         memory: SharedMemory,
-        step_id: int,
+
+        repair: Dict[str, Any],
     ):
 
-        return memory.agent_outputs.get(
-            f"step_{step_id}"
+        memory.runtime_repairs.append(
+            repair
         )
 
+        memory.metrics[
+            "runtime_repairs"
+        ] += 1
+
     # ========================================================
-    # UPDATE SHARED CONTEXT
+    # STORE PATCH
     # ========================================================
 
-    def update_shared_context(
+    def store_patch(
+
         self,
+
         memory: SharedMemory,
-        key: str,
-        value: Any,
+
+        patch_data: Dict[str, Any],
     ):
 
-        memory.shared_context[key] = value
+        memory.patch_history.append(
+            patch_data
+        )
+
+        memory.metrics[
+            "patches_applied"
+        ] += 1
 
     # ========================================================
-    # GET SHARED CONTEXT
+    # STORE INSTALLED DEPENDENCY
     # ========================================================
 
-    def get_shared_context(
+    def store_dependency_install(
+
         self,
+
         memory: SharedMemory,
-        key: str,
-        default=None,
+
+        dependency: str,
     ):
 
-        return memory.shared_context.get(
-            key,
-            default,
+        if (
+            dependency
+            not in memory.installed_dependencies
+        ):
+
+            memory.installed_dependencies.append(
+                dependency
+            )
+
+    # ========================================================
+    # UPDATE WORKSPACE SNAPSHOT
+    # ========================================================
+
+    def update_workspace_snapshot(
+
+        self,
+
+        memory: SharedMemory,
+
+        snapshot: Dict[str, Any],
+    ):
+
+        memory.workspace_snapshot = (
+            snapshot
         )
 
     # ========================================================
@@ -267,11 +377,17 @@ class SharedMemoryManager:
     # ========================================================
 
     def store_artifact(
+
         self,
+
         memory: SharedMemory,
+
         artifact_type: str,
+
         created_by: str,
+
         content: Any,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
@@ -291,44 +407,7 @@ class SharedMemoryManager:
                     content,
 
                 metadata=
-                    metadata,
-            )
-        )
-
-    # ========================================================
-    # STORE CODE ARTIFACT
-    # ========================================================
-
-    def store_code_artifact(
-        self,
-        memory: SharedMemory,
-        created_by: str,
-        code: str,
-        file_path: str,
-        language: str,
-        metadata: Optional[
-            Dict[str, Any]
-        ] = None,
-    ):
-
-        return (
-            memory.artifact_manager
-            .create_code_artifact(
-
-                created_by=
-                    created_by,
-
-                code=
-                    code,
-
-                file_path=
-                    file_path,
-
-                language=
-                    language,
-
-                metadata=
-                    metadata,
+                    metadata or {},
             )
         )
 
@@ -337,12 +416,19 @@ class SharedMemoryManager:
     # ========================================================
 
     def store_execution_artifact(
+
         self,
+
         memory: SharedMemory,
+
         created_by: str,
+
         stdout: str,
+
         stderr: str,
+
         return_code: int,
+
         metadata: Optional[
             Dict[str, Any]
         ] = None,
@@ -365,91 +451,20 @@ class SharedMemoryManager:
                     return_code,
 
                 metadata=
-                    metadata,
+                    metadata or {},
             )
         )
 
     # ========================================================
-    # STORE REFLECTION ARTIFACT
-    # ========================================================
-
-    def store_reflection_artifact(
-        self,
-        memory: SharedMemory,
-        created_by: str,
-        content: Any,
-        retry_required: bool,
-        retry_steps: List[
-            Dict[str, Any]
-        ],
-        quality_score: str,
-        metadata: Optional[
-            Dict[str, Any]
-        ] = None,
-    ):
-
-        return (
-            memory.artifact_manager
-            .create_reflection_artifact(
-
-                created_by=
-                    created_by,
-
-                content=
-                    content,
-
-                retry_required=
-                    retry_required,
-
-                retry_steps=
-                    retry_steps,
-
-                quality_score=
-                    quality_score,
-
-                metadata=
-                    metadata,
-            )
-        )
-
-    # ========================================================
-    # GET ALL ARTIFACTS
-    # ========================================================
-
-    def get_artifacts(
-        self,
-        memory: SharedMemory,
-    ):
-
-        return (
-            memory.artifact_manager
-            .get_all_artifacts()
-        )
-
-    # ========================================================
-    # GET ARTIFACTS BY TYPE
-    # ========================================================
-
-    def get_artifacts_by_type(
-        self,
-        memory: SharedMemory,
-        artifact_type: str,
-    ):
-
-        return (
-            memory.artifact_manager
-            .get_artifacts_by_type(
-                artifact_type
-            )
-        )
-
-    # ========================================================
-    # STORE REFLECTION NOTE
+    # STORE REFLECTION
     # ========================================================
 
     def store_reflection(
+
         self,
+
         memory: SharedMemory,
+
         reflection: str,
     ):
 
@@ -462,11 +477,17 @@ class SharedMemoryManager:
     # ========================================================
 
     def store_execution_log(
+
         self,
+
         memory: SharedMemory,
+
         step_id: int,
+
         agent: str,
+
         status: str,
+
         details: Optional[
             Dict[str, Any]
         ] = None,
@@ -492,12 +513,15 @@ class SharedMemoryManager:
         )
 
     # ========================================================
-    # MARK STEP COMPLETED
+    # STEP COMPLETION
     # ========================================================
 
     def mark_step_completed(
+
         self,
+
         memory: SharedMemory,
+
         step_id: int,
     ):
 
@@ -510,13 +534,20 @@ class SharedMemoryManager:
                 step_id
             )
 
+        memory.metrics[
+            "successful_steps"
+        ] += 1
+
     # ========================================================
-    # MARK STEP FAILED
+    # STEP FAILURE
     # ========================================================
 
     def mark_step_failed(
+
         self,
+
         memory: SharedMemory,
+
         step_id: int,
     ):
 
@@ -529,25 +560,20 @@ class SharedMemoryManager:
                 step_id
             )
 
-    # ========================================================
-    # SET CURRENT STEP
-    # ========================================================
-
-    def set_current_step(
-        self,
-        memory: SharedMemory,
-        step_id: int,
-    ):
-
-        memory.current_step = step_id
+        memory.metrics[
+            "failed_steps"
+        ] += 1
 
     # ========================================================
-    # REGISTER ACTIVE AGENT
+    # ACTIVE AGENTS
     # ========================================================
 
     def register_active_agent(
+
         self,
+
         memory: SharedMemory,
+
         agent_name: str,
     ):
 
@@ -560,13 +586,12 @@ class SharedMemoryManager:
                 agent_name
             )
 
-    # ========================================================
-    # REMOVE ACTIVE AGENT
-    # ========================================================
-
     def remove_active_agent(
+
         self,
+
         memory: SharedMemory,
+
         agent_name: str,
     ):
 
@@ -580,23 +605,43 @@ class SharedMemoryManager:
             )
 
     # ========================================================
-    # STORE FINAL OUTPUT
+    # CURRENT STEP
+    # ========================================================
+
+    def set_current_step(
+
+        self,
+
+        memory: SharedMemory,
+
+        step_id: int,
+    ):
+
+        memory.current_step = step_id
+
+    # ========================================================
+    # FINAL OUTPUT
     # ========================================================
 
     def set_final_output(
+
         self,
+
         memory: SharedMemory,
+
         output: str,
     ):
 
         memory.final_output = output
 
     # ========================================================
-    # EXPORT MEMORY SNAPSHOT
+    # EXPORT SNAPSHOT
     # ========================================================
 
     def export_memory_snapshot(
+
         self,
+
         memory: SharedMemory,
     ) -> Dict[str, Any]:
 
@@ -611,9 +656,6 @@ class SharedMemoryManager:
             "created_at":
                 memory.created_at,
 
-            "current_step":
-                memory.current_step,
-
             "completed_steps":
                 memory.completed_steps,
 
@@ -623,11 +665,29 @@ class SharedMemoryManager:
             "active_agents":
                 memory.active_agents,
 
+            "retry_count":
+                memory.retry_count,
+
             "agent_outputs":
                 memory.agent_outputs,
 
             "shared_context":
                 memory.shared_context,
+
+            "runtime_repairs":
+                memory.runtime_repairs,
+
+            "patch_history":
+                memory.patch_history,
+
+            "installed_dependencies":
+                memory.installed_dependencies,
+
+            "workspace_snapshot":
+                memory.workspace_snapshot,
+
+            "metrics":
+                memory.metrics,
 
             "artifacts":
                 (
@@ -664,7 +724,4 @@ class SharedMemoryManager:
 
             "final_output":
                 memory.final_output,
-
-            "metadata":
-                memory.metadata,
         }

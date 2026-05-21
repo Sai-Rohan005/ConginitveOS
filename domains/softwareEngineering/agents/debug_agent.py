@@ -923,7 +923,7 @@ from langchain_core.output_parsers import (
 # DETERMINISTIC DEBUGGER
 # ============================================================
 
-from domains.softwareEngineering.runtime.deterministic_debugger import (
+from runtime.deterministic_debugger import (
     DeterministicDebugger,
 )
 

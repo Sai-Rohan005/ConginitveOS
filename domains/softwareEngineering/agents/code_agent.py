@@ -63,11 +63,11 @@ from langchain_core.output_parsers import (
 # IMPORT RUNTIME SYSTEMS
 # ============================================================
 
-from domains.softwareEngineering.runtime.import_extractor import (
+from runtime.import_extractor import (
     ImportExtractor,
 )
 
-from domains.softwareEngineering.runtime.patch_engine import (
+from runtime.patch_engine import (
     PatchEngine,
 )
 

@@ -39,9 +39,8 @@ from dataclasses import (
 @dataclass
 class ScoreResult:
 
-    overall_score: float
-
     production_ready: bool
+
 
     category_scores: Dict[
         str,
@@ -62,6 +61,7 @@ class ScoreResult:
     weaknesses: List[str] = field(
         default_factory=list
     )
+    overall_score: float=0.0
 
 
 # ============================================================

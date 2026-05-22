@@ -36,6 +36,16 @@ class DeterministicDebugger:
     # MAIN DEBUG
     # ========================================================
 
+
+    def validate_agent_output(self, output: dict) -> dict:
+        return {
+            "valid": isinstance(output, dict),
+            "has_success_flag": "success" in output,
+            "keys": list(output.keys()) if isinstance(output, dict) else [],
+            "warnings": []
+        }
+
+
     async def debug_runtime_failure(
 
         self,

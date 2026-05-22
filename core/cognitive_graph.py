@@ -437,7 +437,7 @@ class CognitiveGraph:
                     reflection_result
                     .retry_required,
 
-                "improvements": getattr(reflection_result, "improvements", []),
+                "improvements": getattr(reflection_result, "recommendations", []),
             }
 
             print(

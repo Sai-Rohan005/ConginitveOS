@@ -39,18 +39,23 @@ from typing import (
 class WorkflowStep:
 
     step_id: int
-
     agent: str
-
     task: str
 
-    dependencies: List[int] = field(
-        default_factory=list
-    )
+    dependencies: List[int] = field(default_factory=list)
 
     parallelizable: bool = False
 
     expected_output: str = ""
+
+    # ✅ ADD THIS
+    required_skills: List[str] = field(default_factory=list)
+
+    # (VERY IMPORTANT for future failures)
+    runtime_backend: str = "python"
+    execution_mode: str = "sync"
+    deterministic_execution: bool = True
+
 
 
 # ============================================================

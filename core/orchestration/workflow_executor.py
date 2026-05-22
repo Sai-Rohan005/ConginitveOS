@@ -7,6 +7,8 @@ CognitiveOS - Workflow Executor
 Responsibilities:
 - execute workflows
 - orchestrate agents
+- dynamically load agents
+- dynamically inject skills
 - manage runtime cognition
 - execute retry cycles
 - invoke reflection
@@ -14,6 +16,9 @@ Responsibilities:
 - aggregate outputs
 - manage artifacts
 - maintain shared memory
+- support deterministic orchestration
+- enable scalable cognition runtime
+- provide execution telemetry
 
 This becomes the runtime
 cognitive execution engine.
@@ -21,6 +26,8 @@ cognitive execution engine.
 
 from __future__ import annotations
 
+import time
+import asyncio
 import traceback
 
 from typing import (
@@ -62,6 +69,18 @@ from core.runtime.deterministic_debugger import (
 )
 
 # ============================================================
+# DYNAMIC LOADERS
+# ============================================================
+
+from core.agents.agent_loader import (
+    get_agent_loader,
+)
+
+from core.skills.skill_loader import (
+    get_skill_loader,
+)
+
+# ============================================================
 # EXECUTION RESULT
 # ============================================================
 
@@ -100,29 +119,13 @@ class WorkflowExecutionResult:
 class WorkflowExecutor:
 
     """
-    Runtime cognition engine.
+    Runtime cognition execution engine.
     """
 
     def __init__(
         self,
-        agent_registry: Dict[
-            str,
-            Any,
-        ],
         tool_executor,
     ):
-
-        # ====================================================
-        # AGENTS
-        # ====================================================
-
-        self.agent_registry = (
-            agent_registry
-        )
-
-        # ====================================================
-        # TOOLS
-        # ====================================================
 
         self.tool_executor = (
             tool_executor
@@ -134,6 +137,18 @@ class WorkflowExecutor:
 
         self.memory_manager = (
             SharedMemoryManager()
+        )
+
+        # ====================================================
+        # LOADERS
+        # ====================================================
+
+        self.agent_loader = (
+            get_agent_loader()
+        )
+
+        self.skill_loader = (
+            get_skill_loader()
         )
 
         # ====================================================
@@ -160,6 +175,23 @@ class WorkflowExecutor:
             DeterministicDebugger()
         )
 
+        # ====================================================
+        # TELEMETRY
+        # ====================================================
+
+        self.telemetry = {
+
+            "executed_steps": 0,
+
+            "failed_steps": 0,
+
+            "retried_steps": 0,
+
+            "parallel_steps": 0,
+
+            "total_runtime": 0.0,
+        }
+
     # ========================================================
     # MAIN EXECUTION
     # ========================================================
@@ -170,6 +202,8 @@ class WorkflowExecutor:
         workflow_steps: List[Any],
     ) -> WorkflowExecutionResult:
 
+        start_time = time.time()
+
         memory = (
             self.memory_manager
             .create_memory(
@@ -179,67 +213,182 @@ class WorkflowExecutor:
 
         failed_steps = []
 
+        execution_trace = []
+
+        workflow_state = {
+
+            "started_at":
+                start_time,
+
+            "status":
+                "running",
+
+            "steps_total":
+                len(workflow_steps),
+        }
+
         try:
 
             # =================================================
-            # EXECUTE WORKFLOW
+            # EXECUTION LOOP
             # =================================================
 
-            for step in workflow_steps:
+            remaining_steps = (
+                workflow_steps.copy()
+            )
 
-                if not (
-                    self._dependencies_satisfied(
+            while remaining_steps:
+
+                executable_steps = []
+
+                # =============================================
+                # FIND READY STEPS
+                # =============================================
+
+                for step in remaining_steps:
+
+                    if self._dependencies_satisfied(
+
                         step,
                         memory,
-                    )
-                ):
+                    ):
 
-                    failed_steps.append(
+                        executable_steps.append(
+                            step
+                        )
 
-                        {
+                if not executable_steps:
 
-                            "step_id":
-                                step.step_id,
+                    raise RuntimeError(
 
-                            "agent":
-                                step.agent,
-
-                            "error":
-                                "Dependency failure",
-                        }
+                        "Workflow deadlock detected."
                     )
 
-                    continue
+                # =============================================
+                # PARALLEL EXECUTION
+                # =============================================
 
-                result = await (
-                    self._execute_step(
+                parallel_tasks = []
+
+                for step in executable_steps:
+
+                    if getattr(
                         step,
-                        memory,
+                        "parallelizable",
+                        False,
+                    ):
+
+                        parallel_tasks.append(
+
+                            self._execute_step(
+                                step,
+                                memory,
+                            )
+                        )
+
+                    else:
+
+                        result = await (
+                            self._execute_step(
+                                step,
+                                memory,
+                            )
+                        )
+                        print("this is result from step execution", result)
+
+                        execution_trace.append(
+
+                            self._build_execution_trace(
+                                step,
+                                result,
+                            )
+                        )
+
+                        if not result.get(
+                            "success",
+                            False,
+                        ):
+
+                            failed_steps.append(
+
+                                {
+
+                                    "step_id":
+                                        step.step_id,
+
+                                    "agent":
+                                        step.agent,
+
+                                    "error":
+                                        result.get(
+                                            "error",
+                                            "Unknown failure",
+                                        ),
+                                }
+                            )
+
+                        self.telemetry[
+                            "executed_steps"
+                        ] += 1
+
+                    remaining_steps.remove(
+                        step
                     )
-                )
 
-                if not result.get(
-                    "success",
-                    False,
-                ):
+                # =============================================
+                # EXECUTE PARALLEL TASKS
+                # =============================================
 
-                    failed_steps.append(
+                if parallel_tasks:
 
-                        {
-
-                            "step_id":
-                                step.step_id,
-
-                            "agent":
-                                step.agent,
-
-                            "error":
-                                result.get(
-                                    "error",
-                                    "Unknown failure",
-                                ),
-                        }
+                    self.telemetry[
+                        "parallel_steps"
+                    ] += len(
+                        parallel_tasks
                     )
+
+                    parallel_results = (
+
+                        await asyncio.gather(
+                            *parallel_tasks,
+                            return_exceptions=True,
+                        )
+                    )
+
+                    for result in (
+                        parallel_results
+                    ):
+
+                        if isinstance(
+                            result,
+                            Exception,
+                        ):
+
+                            failed_steps.append(
+
+                                {
+
+                                    "error":
+                                        str(result)
+                                }
+                            )
+
+                            continue
+
+                        execution_trace.append(
+
+                            {
+
+                                "parallel":
+                                    True,
+
+                                "success":
+                                    result.get(
+                                        "success",
+                                        False,
+                                    ),
+                            }
+                        )
 
             # =================================================
             # RETRY ANALYSIS
@@ -279,13 +428,39 @@ class WorkflowExecutor:
 
                     if step:
 
-                        await self._execute_step(
-                            step,
-                            memory,
+                        self.telemetry[
+                            "retried_steps"
+                        ] += 1
+
+                        retry_output = (
+
+                            await self
+                            ._execute_step(
+                                step,
+                                memory,
+                            )
+                        )
+
+                        execution_trace.append(
+
+                            {
+
+                                "retry":
+                                    True,
+
+                                "step_id":
+                                    step.step_id,
+
+                                "success":
+                                    retry_output.get(
+                                        "success",
+                                        False,
+                                    ),
+                            }
                         )
 
             # =================================================
-            # AGGREGATE OUTPUTS
+            # AGGREGATION
             # =================================================
 
             aggregated_output = {
@@ -296,9 +471,16 @@ class WorkflowExecutor:
                 "agent_outputs":
                     memory.agent_outputs,
 
+                "execution_trace":
+                    execution_trace,
+
                 "artifacts":
-                    memory.artifact_manager
+                    memory
+                    .artifact_manager
                     .export_artifacts(),
+
+                "telemetry":
+                    self.telemetry,
             }
 
             # =================================================
@@ -350,6 +532,35 @@ class WorkflowExecutor:
             )
 
             # =================================================
+            # DEBUG VALIDATION
+            # =================================================
+
+            debug_result = (
+                self.debugger
+                .validate_execution(
+
+                    outputs=
+                        memory.agent_outputs
+                )
+            )
+
+            # =================================================
+            # FINAL TELEMETRY
+            # =================================================
+
+            total_runtime = (
+                time.time() - start_time
+            )
+
+            self.telemetry[
+                "total_runtime"
+            ] = total_runtime
+
+            workflow_state[
+                "status"
+            ] = "completed"
+
+            # =================================================
             # FINAL OUTPUT
             # =================================================
 
@@ -361,8 +572,14 @@ class WorkflowExecutor:
                 "query":
                     query,
 
+                "workflow_state":
+                    workflow_state,
+
                 "agent_outputs":
                     memory.agent_outputs,
+
+                "execution_trace":
+                    execution_trace,
 
                 "score":
                     score_result
@@ -378,6 +595,12 @@ class WorkflowExecutor:
 
                 "reflection":
                     reflection_result.summary,
+
+                "debug":
+                    debug_result,
+
+                "telemetry":
+                    self.telemetry,
 
                 "artifacts":
                     memory
@@ -405,6 +628,10 @@ class WorkflowExecutor:
 
         except Exception as e:
 
+            workflow_state[
+                "status"
+            ] = "failed"
+
             return WorkflowExecutionResult(
 
                 success=False,
@@ -417,6 +644,9 @@ class WorkflowExecutor:
                     "traceback":
                         traceback
                         .format_exc(),
+
+                    "workflow_state":
+                        workflow_state,
                 },
 
                 memory_snapshot={},
@@ -432,25 +662,69 @@ class WorkflowExecutor:
         memory,
     ) -> Dict[str, Any]:
 
-        agent = (
-            self.agent_registry.get(
-                step.agent
-            )
-        )
-
-        if not agent:
-
-            return {
-
-                "success":
-                    False,
-
-                "error":
-                    f"Unknown agent: "
-                    f"{step.agent}",
-            }
+        step_start = time.time()
 
         try:
+
+            # =================================================
+            # LOAD EXECUTION CONTEXT
+            # =================================================
+
+            execution_context = (
+
+                self.agent_loader
+                .build_execution_context(
+
+                    workflow_step=step,
+
+                    global_context={
+
+                        "query":
+                            memory.query,
+
+                        "shared_context":
+                            memory.shared_context,
+
+                        "agent_outputs":
+                            memory.agent_outputs,
+
+                        "artifacts":
+
+                            memory
+                            .artifact_manager
+                            .get_all_artifacts(),
+                    },
+                )
+            )
+
+            if execution_context.get(
+                "success"
+            ) is False:
+
+                return execution_context
+
+            # =================================================
+            # AGENT
+            # =================================================
+
+            agent = execution_context[
+                "agent"
+            ]
+
+            # =================================================
+            # LIFECYCLE HOOK
+            # =================================================
+
+            if hasattr(
+                agent,
+                "before_run",
+            ):
+
+                await agent.before_run()
+
+            # =================================================
+            # EXECUTION CONTEXT
+            # =================================================
 
             context = {
 
@@ -470,18 +744,84 @@ class WorkflowExecutor:
                     self.tool_executor,
 
                 "context_artifacts":
+
                     memory
                     .artifact_manager
                     .get_all_artifacts(),
+
+                "skills":
+                    execution_context.get(
+                        "skills",
+                        {},
+                    ),
+
+                "runtime_backend":
+                    step.runtime_backend,
+
+                "execution_mode":
+                    step.execution_mode,
             }
+
+            # =================================================
+            # EXECUTION
+            # =================================================
 
             result = await agent.run(
                 context
             )
 
-            # ================================================
+            # =================================================
+            # AFTER RUN HOOK
+            # =================================================
+
+            if hasattr(
+                agent,
+                "after_run",
+            ):
+
+                await agent.after_run(
+                    result
+                )
+
+            # =================================================
+            # DEBUG VALIDATION
+            # =================================================
+
+            debug_validation = (
+
+                self.debugger
+                .validate_agent_output(
+                    result
+                )
+            )
+
+            result[
+                "debug_validation"
+            ] = debug_validation
+
+            # =================================================
+            # RUNTIME PROFILING
+            # =================================================
+
+            result[
+                "runtime_metrics"
+            ] = {
+
+                "execution_time":
+
+                    time.time()
+                    - step_start,
+
+                "step_id":
+                    step.step_id,
+
+                "agent":
+                    step.agent,
+            }
+
+            # =================================================
             # STORE OUTPUT
-            # ================================================
+            # =================================================
 
             self.memory_manager.store_agent_output(
 
@@ -494,9 +834,9 @@ class WorkflowExecutor:
                 output=result,
             )
 
-            # ================================================
+            # =================================================
             # STORE ARTIFACT
-            # ================================================
+            # =================================================
 
             self.memory_manager.store_artifact(
 
@@ -518,12 +858,15 @@ class WorkflowExecutor:
 
                     "task":
                         step.task,
+
+                    "agent":
+                        step.agent,
                 },
             )
 
-            # ================================================
+            # =================================================
             # COMPLETE STEP
-            # ================================================
+            # =================================================
 
             self.memory_manager.mark_step_completed(
 
@@ -535,6 +878,10 @@ class WorkflowExecutor:
             return result
 
         except Exception as e:
+
+            self.telemetry[
+                "failed_steps"
+            ] += 1
 
             return {
 
@@ -548,6 +895,40 @@ class WorkflowExecutor:
                     traceback
                     .format_exc(),
             }
+
+    # ========================================================
+    # EXECUTION TRACE
+    # ========================================================
+
+    def _build_execution_trace(
+        self,
+        step,
+        result,
+    ) -> Dict[str, Any]:
+
+        return {
+
+            "step_id":
+                step.step_id,
+
+            "agent":
+                step.agent,
+
+            "task":
+                step.task,
+
+            "success":
+                result.get(
+                    "success",
+                    False,
+                ),
+
+            "execution_mode":
+                step.execution_mode,
+
+            "runtime_backend":
+                step.runtime_backend,
+        }
 
     # ========================================================
     # DEPENDENCIES

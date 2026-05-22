@@ -202,12 +202,7 @@ class CognitiveGraph:
 
         self.workflow_executor = (
             WorkflowExecutor(
-
-                agent_registry=
-                    self.agent_registry,
-
-                tool_executor=
-                    self.tool_executor,
+                tool_executor=self.tool_executor,
             )
         )
 
@@ -372,9 +367,7 @@ class CognitiveGraph:
                     quality_result
                     .production_ready,
 
-                "issues":
-                    quality_result
-                    .issues,
+                "issues": getattr(quality_result, "issues", []),
             }
 
             print(
@@ -400,9 +393,7 @@ class CognitiveGraph:
                     score_result
                     .overall_score,
 
-                "dimension_scores":
-                    score_result
-                    .dimension_scores,
+                "dimension_scores": getattr(score_result, "dimension_scores", {}),
             }
 
             print(
@@ -446,9 +437,7 @@ class CognitiveGraph:
                     reflection_result
                     .retry_required,
 
-                "improvements":
-                    reflection_result
-                    .improvements,
+                "improvements": getattr(reflection_result, "improvements", []),
             }
 
             print(

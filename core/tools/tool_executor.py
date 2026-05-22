@@ -37,11 +37,11 @@ from typing import (
 # IMPORT HELPERS
 # ============================================================
 
-from domains.softwareEngineering.utils.import_extractor import (
+from core.utils.import_extractor import (
     extract_imports,
 )
 
-from domains.softwareEngineering.utils.patch_engine import (
+from core.patching.patch_engine import (
     PatchEngine,
 )
 

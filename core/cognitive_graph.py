@@ -1,22 +1,26 @@
 # core/cognitive_graph.py
 
 """
-CognitiveOS - Cognitive Graph
+CognitiveOS - Global Cognitive Graph
 ---------------------------------------------------------
 
 Responsibilities:
-- route queries to domains
-- manage global orchestration
-- invoke domain pipelines
-- maintain runtime cognition state
-- provide unified execution interface
+- global orchestration
+- domain routing
+- deterministic planning
+- deterministic supervision
+- workflow execution
+- cognition management
+- runtime state management
+- unified multi-domain execution
 
-This becomes the GLOBAL orchestration layer
+This becomes the MASTER orchestration layer
 for CognitiveOS.
 """
 
 from __future__ import annotations
 
+import time
 import traceback
 
 from dataclasses import (
@@ -31,7 +35,47 @@ from typing import (
 )
 
 # ============================================================
-# IMPORT DOMAINS
+# CORE ORCHESTRATION
+# ============================================================
+
+from core.orchestration.deterministic_planner import (
+    DeterministicPlanner,
+)
+
+from core.orchestration.deterministic_supervisor import (
+    DeterministicSupervisor,
+)
+
+from core.orchestration.workflow_executor import (
+    WorkflowExecutor,
+)
+
+# ============================================================
+# CORE TOOLS
+# ============================================================
+
+from core.tools.tool_executor import (
+    ToolExecutor,
+)
+
+# ============================================================
+# COGNITION ENGINES
+# ============================================================
+
+from core.cognition.reflection_engine import (
+    ReflectionEngine,
+)
+
+from core.cognition.scoring_engine import (
+    ScoringEngine,
+)
+
+from core.cognition.quality_engine import (
+    QualityEngine,
+)
+
+# ============================================================
+# DOMAINS
 # ============================================================
 
 from domains.softwareEngineering.software_engineering_domain import (
@@ -70,6 +114,21 @@ class CognitiveRuntimeState:
         Any,
     ] = field(default_factory=dict)
 
+    reflection_output: Dict[
+        str,
+        Any,
+    ] = field(default_factory=dict)
+
+    quality_output: Dict[
+        str,
+        Any,
+    ] = field(default_factory=dict)
+
+    score_output: Dict[
+        str,
+        Any,
+    ] = field(default_factory=dict)
+
     final_output: str = ""
 
     metadata: Dict[
@@ -86,10 +145,38 @@ class CognitiveRuntimeState:
 class CognitiveGraph:
 
     """
-    Global orchestration graph for CognitiveOS.
+    Master orchestration graph.
     """
 
     def __init__(self):
+
+        # ====================================================
+        # CORE ENGINES
+        # ====================================================
+
+        self.planner = (
+            DeterministicPlanner()
+        )
+
+        self.supervisor = (
+            DeterministicSupervisor()
+        )
+
+        self.tool_executor = (
+            ToolExecutor()
+        )
+
+        self.reflection_engine = (
+            ReflectionEngine()
+        )
+
+        self.scoring_engine = (
+            ScoringEngine()
+        )
+
+        self.quality_engine = (
+            QualityEngine()
+        )
 
         # ====================================================
         # DOMAIN REGISTRY
@@ -97,9 +184,32 @@ class CognitiveGraph:
 
         self.domain_registry = {
 
-            "software_engineering":
+            "softwareEngineering":
                 SoftwareEngineeringDomain(),
         }
+
+        # ====================================================
+        # AGENT REGISTRY
+        # ====================================================
+
+        self.agent_registry = (
+            self._build_agent_registry()
+        )
+
+        # ====================================================
+        # WORKFLOW EXECUTOR
+        # ====================================================
+
+        self.workflow_executor = (
+            WorkflowExecutor(
+
+                agent_registry=
+                    self.agent_registry,
+
+                tool_executor=
+                    self.tool_executor,
+            )
+        )
 
     # ========================================================
     # MAIN EXECUTION
@@ -116,11 +226,13 @@ class CognitiveGraph:
             )
         )
 
+        start_time = time.time()
+
         try:
 
             print(
                 "\n"
-                + "=" * 80
+                + "=" * 100
             )
 
             print(
@@ -128,19 +240,21 @@ class CognitiveGraph:
             )
 
             print(
-                "=" * 80
+                "=" * 100
             )
 
             print(
-                f"\nUSER QUERY:\n{query}\n"
+                f"\nQUERY:\n{query}\n"
             )
 
             # =================================================
             # STEP 1 — DOMAIN ROUTING
             # =================================================
 
-            domain = self._route_domain(
-                query
+            domain = (
+                self._route_domain(
+                    query
+                )
             )
 
             runtime_state.active_domain = (
@@ -148,69 +262,247 @@ class CognitiveGraph:
             )
 
             print(
-                f"[ROUTER] Selected Domain: {domain}"
+                f"[ROUTER] DOMAIN => {domain}"
             )
 
             # =================================================
-            # STEP 2 — DOMAIN EXECUTION
+            # STEP 2 — DETERMINISTIC PLANNING
             # =================================================
 
-            domain_handler = (
-                self.domain_registry.get(
-                    domain
-                )
-            )
-
-            if not domain_handler:
-
-                raise ValueError(
-                    f"Unknown domain: {domain}"
-                )
-
-            domain_result = await (
-                domain_handler.execute(
+            planner_result = (
+                self.planner.plan(
                     query
                 )
             )
 
+            runtime_state.planner_output = (
+                self.planner.export_plan(
+                    planner_result
+                )
+            )
+
+            print(
+                "\n[PLANNER] PLAN GENERATED"
+            )
+
             # =================================================
-            # STEP 3 — UPDATE RUNTIME STATE
+            # STEP 3 — DETERMINISTIC SUPERVISION
             # =================================================
 
-            runtime_state.planner_output = (
-                domain_result.planner_output
+            supervisor_result = (
+                self.supervisor.supervise(
+
+                    workflow_steps=
+                        planner_result
+                        .workflow_steps,
+
+                    query=query,
+                )
             )
 
             runtime_state.supervisor_output = (
-                domain_result.supervisor_output
+
+                self.supervisor
+                .export_supervision(
+                    supervisor_result
+                )
             )
 
-            runtime_state.execution_result = (
-                domain_result.execution_result
+            print(
+                "\n[SUPERVISOR] WORKFLOW SUPERVISED"
             )
+
+            # =================================================
+            # STEP 4 — WORKFLOW EXECUTION
+            # =================================================
+
+            execution_result = await (
+
+                self.workflow_executor
+                .execute_workflow(
+
+                    query=query,
+
+                    workflow_steps=
+                        planner_result
+                        .workflow_steps,
+                )
+            )
+
+            runtime_state.execution_result = {
+
+                "success":
+                    execution_result.success,
+
+                "final_output":
+                    execution_result
+                    .final_output,
+            }
 
             runtime_state.memory_snapshot = (
-                domain_result.execution_result
+
+                execution_result
+                .memory_snapshot
             )
 
+            print(
+                "\n[EXECUTOR] WORKFLOW EXECUTED"
+            )
+
+            # =================================================
+            # STEP 5 — QUALITY ANALYSIS
+            # =================================================
+
+            quality_result = (
+                self.quality_engine
+                .evaluate(
+
+                    execution_result
+                    .final_output
+                )
+            )
+
+            runtime_state.quality_output = {
+
+                "overall_score":
+                    quality_result
+                    .overall_score,
+
+                "production_ready":
+                    quality_result
+                    .production_ready,
+
+                "issues":
+                    quality_result
+                    .issues,
+            }
+
+            print(
+                "\n[QUALITY] QUALITY ANALYZED"
+            )
+
+            # =================================================
+            # STEP 6 — SCORING
+            # =================================================
+
+            score_result = (
+                self.scoring_engine
+                .score(
+
+                    execution_result
+                    .final_output
+                )
+            )
+
+            runtime_state.score_output = {
+
+                "overall_score":
+                    score_result
+                    .overall_score,
+
+                "dimension_scores":
+                    score_result
+                    .dimension_scores,
+            }
+
+            print(
+                "\n[SCORING] EXECUTION SCORED"
+            )
+
+            # =================================================
+            # STEP 7 — REFLECTION
+            # =================================================
+
+            reflection_result = (
+
+                self.reflection_engine
+                .reflect(
+
+                    execution_result=
+                        execution_result
+                        .final_output,
+
+                    quality_result=
+                        runtime_state
+                        .quality_output,
+
+                    artifacts=
+                        execution_result
+                        .memory_snapshot
+                        .get(
+                            "artifacts",
+                            [],
+                        ),
+                )
+            )
+
+            runtime_state.reflection_output = {
+
+                "summary":
+                    reflection_result
+                    .summary,
+
+                "retry_required":
+                    reflection_result
+                    .retry_required,
+
+                "improvements":
+                    reflection_result
+                    .improvements,
+            }
+
+            print(
+                "\n[REFLECTION] REFLECTION COMPLETE"
+            )
+
+            # =================================================
+            # STEP 8 — FINAL OUTPUT
+            # =================================================
+
             runtime_state.final_output = (
-                domain_result.final_output
+
+                self._build_final_output(
+                    runtime_state
+                )
+            )
+
+            execution_time = round(
+
+                time.time()
+                - start_time,
+
+                2,
             )
 
             runtime_state.metadata = {
 
                 "success":
-                    domain_result.success,
+                    True,
 
                 "active_domain":
                     domain,
 
-                **domain_result.metadata,
+                "execution_time":
+                    execution_time,
+
+                "workflow_steps":
+                    len(
+                        planner_result
+                        .workflow_steps
+                    ),
+
+                "quality_score":
+                    quality_result
+                    .overall_score,
+
+                "production_ready":
+                    quality_result
+                    .production_ready,
             }
 
             print(
                 "\n"
-                + "=" * 80
+                + "=" * 100
             )
 
             print(
@@ -218,7 +510,7 @@ class CognitiveGraph:
             )
 
             print(
-                "=" * 80
+                "=" * 100
             )
 
             return runtime_state
@@ -230,21 +522,20 @@ class CognitiveGraph:
         except Exception as e:
 
             runtime_state.final_output = f"""
-# CognitiveOS Execution Failed
+# CognitiveOS Global Failure
 
-An internal orchestration error occurred.
+Execution failed.
 
-## Error
+Error:
 {str(e)}
 
-## Traceback
+Traceback:
 {traceback.format_exc()}
 """
 
             runtime_state.metadata = {
 
-                "success":
-                    False,
+                "success": False,
 
                 "error":
                     str(e),
@@ -252,7 +543,7 @@ An internal orchestration error occurred.
 
             print(
                 "\n"
-                + "=" * 80
+                + "=" * 100
             )
 
             print(
@@ -260,7 +551,7 @@ An internal orchestration error occurred.
             )
 
             print(
-                "=" * 80
+                "=" * 100
             )
 
             print(
@@ -268,6 +559,35 @@ An internal orchestration error occurred.
             )
 
             return runtime_state
+
+    # ========================================================
+    # AGENT REGISTRY
+    # ========================================================
+
+    def _build_agent_registry(
+        self,
+    ) -> Dict[str, Any]:
+
+        registry = {}
+
+        # ====================================================
+        # LOAD DOMAIN AGENTS
+        # ====================================================
+
+        for domain_name, domain in (
+            self.domain_registry.items()
+        ):
+
+            if hasattr(
+                domain,
+                "get_agents"
+            ):
+
+                registry.update(
+                    domain.get_agents()
+                )
+
+        return registry
 
     # ========================================================
     # DOMAIN ROUTER
@@ -278,67 +598,216 @@ An internal orchestration error occurred.
         query: str,
     ) -> str:
 
-        """
-        Initial simple rule-based routing.
-
-        Later this becomes:
-        - semantic routing
-        - LLM routing
-        - embedding routing
-        - hybrid routing
-        """
-
         query_lower = query.lower()
+
+        # ====================================================
+        # SOFTWARE ENGINEERING
+        # ====================================================
 
         software_keywords = [
 
-            "build",
-
-            "api",
+            "fastapi",
 
             "backend",
 
             "frontend",
 
-            "system",
+            "jwt",
 
-            "architecture",
-
-            "database",
-
-            "fastapi",
-
-            "react",
+            "api",
 
             "docker",
 
-            "kubernetes",
+            "microservice",
 
-            "microservices",
-
-            "code",
-
-            "debug",
-
-            "python",
+            "database",
 
             "websocket",
 
-            "software",
+            "code",
+
+            "python",
+
+            "architecture",
+
+            "system",
         ]
+
+        # ====================================================
+        # AI ENGINEERING
+        # ====================================================
+
+        ai_keywords = [
+
+            "llm",
+
+            "rag",
+
+            "embedding",
+
+            "vector",
+
+            "langchain",
+
+            "transformer",
+
+            "fine tuning",
+        ]
+
+        # ====================================================
+        # CYBERSECURITY
+        # ====================================================
+
+        security_keywords = [
+
+            "xss",
+
+            "csrf",
+
+            "vulnerability",
+
+            "security",
+
+            "exploit",
+
+            "jwt attack",
+        ]
+
+        # ====================================================
+        # DEVOPS
+        # ====================================================
+
+        devops_keywords = [
+
+            "kubernetes",
+
+            "terraform",
+
+            "ci/cd",
+
+            "deployment",
+
+            "monitoring",
+        ]
+
+        # ====================================================
+        # DOMAIN SCORING
+        # ====================================================
+
+        scores = {
+
+            "softwareEngineering": 0,
+
+            "aiEngineering": 0,
+
+            "cybersecurity": 0,
+
+            "devops": 0,
+        }
 
         for keyword in software_keywords:
 
             if keyword in query_lower:
 
-                return (
-                    "software_engineering"
-                )
+                scores[
+                    "softwareEngineering"
+                ] += 1
+
+        for keyword in ai_keywords:
+
+            if keyword in query_lower:
+
+                scores[
+                    "aiEngineering"
+                ] += 1
+
+        for keyword in security_keywords:
+
+            if keyword in query_lower:
+
+                scores[
+                    "cybersecurity"
+                ] += 1
+
+        for keyword in devops_keywords:
+
+            if keyword in query_lower:
+
+                scores[
+                    "devops"
+                ] += 1
+
+        selected = max(
+
+            scores,
+
+            key=scores.get
+        )
 
         # ====================================================
         # DEFAULT DOMAIN
         # ====================================================
 
-        return (
-            "software_engineering"
+        if scores[selected] == 0:
+
+            return (
+                "softwareEngineering"
+            )
+
+        return selected
+
+    # ========================================================
+    # FINAL OUTPUT BUILDER
+    # ========================================================
+
+    def _build_final_output(
+        self,
+        runtime_state:
+            CognitiveRuntimeState,
+    ) -> str:
+
+        quality = (
+            runtime_state
+            .quality_output
+            .get(
+                "overall_score",
+                0,
+            )
         )
+
+        score = (
+            runtime_state
+            .score_output
+            .get(
+                "overall_score",
+                0,
+            )
+        )
+
+        reflection = (
+            runtime_state
+            .reflection_output
+            .get(
+                "summary",
+                "",
+            )
+        )
+
+        return f"""
+# CognitiveOS Execution Result
+
+## Active Domain
+{runtime_state.active_domain}
+
+## Quality Score
+{quality}
+
+## Cognitive Score
+{score}
+
+## Reflection Summary
+{reflection}
+
+## Metadata
+{runtime_state.metadata}
+"""

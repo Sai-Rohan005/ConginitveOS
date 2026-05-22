@@ -13,20 +13,6 @@ Responsibilities:
 - self-heal runtime failures
 - reduce unnecessary Gemini calls
 - collaborate through artifacts
-
-Architecture:
-
-Gemini:
-    - reasoning
-    - semantic implementation
-    - architecture-aware generation
-
-Deterministic Runtime:
-    - project structure
-    - requirements generation
-    - docker generation
-    - execution validation
-    - runtime repair
 """
 
 from __future__ import annotations
@@ -221,6 +207,41 @@ Context Artifacts:
         self.max_runtime_repairs = 2
 
     # ========================================================
+    # SYSTEM PROMPT
+    # ========================================================
+
+    def _system_prompt(self) -> str:
+
+        return """
+You are CognitiveOS CodeAgent.
+
+You are an autonomous software engineering agent.
+
+Responsibilities:
+- generate production-grade systems
+- generate executable Python projects
+- create scalable backend architectures
+- generate APIs, services, models, and utilities
+- write modular clean code
+- minimize hallucinations
+- validate execution correctness
+- repair runtime failures when possible
+- always return structured JSON
+
+Rules:
+- generate complete executable files
+- avoid placeholders unless necessary
+- prefer FastAPI for APIs
+- use clean architecture principles
+- separate routes/services/models
+- ensure imports are valid
+- avoid pseudocode
+- generate production-ready implementations
+
+Return JSON only.
+"""
+
+    # ========================================================
     # MAIN EXECUTION
     # ========================================================
 
@@ -247,6 +268,16 @@ Context Artifacts:
             tool_executor = context.get(
                 "tool_executor"
             )
+
+            if not tool_executor:
+
+                return {
+
+                    "success": False,
+
+                    "error":
+                        "tool_executor missing from context",
+                }
 
             # =================================================
             # ARTIFACT COLLABORATION
@@ -499,7 +530,7 @@ Context Artifacts:
                     )
 
             # =================================================
-            # DETERMINISTIC REQUIREMENTS
+            # REQUIREMENTS
             # =================================================
 
             requirements = (
@@ -530,10 +561,6 @@ Context Artifacts:
             # DOCKERFILE
             # =================================================
 
-            dockerfile = (
-                self._generate_dockerfile()
-            )
-
             await tool_executor.execute_tool(
 
                 "write_file",
@@ -544,17 +571,13 @@ Context Artifacts:
                         "Dockerfile",
 
                     "content":
-                        dockerfile,
+                        self._generate_dockerfile(),
                 },
             )
 
             # =================================================
             # DOCKER COMPOSE
             # =================================================
-
-            docker_compose = (
-                self._generate_docker_compose()
-            )
 
             await tool_executor.execute_tool(
 
@@ -566,27 +589,13 @@ Context Artifacts:
                         "docker-compose.yml",
 
                     "content":
-                        docker_compose,
+                        self._generate_docker_compose(),
                 },
             )
 
             # =================================================
             # README
             # =================================================
-
-            readme = self._generate_readme(
-
-                query=context.get(
-                    "query",
-                    ""
-                ),
-
-                requirements=requirements,
-
-                api_implementations=(
-                    api_implementations
-                ),
-            )
 
             await tool_executor.execute_tool(
 
@@ -598,161 +607,21 @@ Context Artifacts:
                         "README.md",
 
                     "content":
-                        readme,
+                        self._generate_readme(
+
+                            query=context.get(
+                                "query",
+                                ""
+                            ),
+
+                            requirements=requirements,
+
+                            api_implementations=(
+                                api_implementations
+                            ),
+                        ),
                 },
             )
-
-            # =================================================
-            # EXECUTION VALIDATION
-            # =================================================
-
-            print(
-                "\nVALIDATING EXECUTION...\n"
-            )
-
-            execution_result = None
-
-            stdout = ""
-            stderr = ""
-            return_code = -1
-
-            runtime_repairs = []
-
-            for attempt in range(
-                self.max_runtime_repairs + 1
-            ):
-
-                print(
-                    f"\nRUNTIME EXECUTION ATTEMPT: {attempt + 1}"
-                )
-
-                execution_result = await (
-                    tool_executor.execute_tool(
-
-                        "run_project",
-
-                        {
-
-                            "entry_file":
-                                "app/main.py"
-                        },
-                    )
-                )
-
-                if execution_result.get(
-                    "success",
-                    False,
-                ):
-
-                    print(
-                        "\nEXECUTION SUCCESSFUL"
-                    )
-
-                    break
-
-                # =============================================
-                # EXTRACT STDERR
-                # =============================================
-
-                stderr = ""
-
-                if execution_result.get(
-                    "output"
-                ):
-
-                    stderr = (
-                        execution_result[
-                            "output"
-                        ].get(
-                            "stderr",
-                            "",
-                        )
-                    )
-
-                print(
-                    "\nEXECUTION FAILED"
-                )
-
-                print(stderr)
-
-                # =============================================
-                # PATCH ENGINE
-                # =============================================
-
-                patch_result = await (
-
-                    self.patch_engine
-                    .patch_runtime_failure(
-
-                        file_path=(
-                            tool_executor
-                            .project_workspace
-                            / "app/main.py"
-                        ),
-
-                        stderr=stderr,
-                    )
-                )
-
-                runtime_repairs.append(
-                    patch_result
-                )
-
-                print(
-                    "\nPATCH RESULT:\n"
-                )
-
-                print(
-                    patch_result
-                )
-
-                if not patch_result.get(
-                    "patched",
-                    False,
-                ):
-
-                    break
-
-            # =================================================
-            # FINAL OUTPUT EXTRACTION
-            # =================================================
-
-            if execution_result:
-
-                if execution_result.get(
-                    "output"
-                ):
-
-                    stdout = (
-                        execution_result[
-                            "output"
-                        ].get(
-                            "stdout",
-                            "",
-                        )
-                    )
-
-                    stderr = (
-                        execution_result[
-                            "output"
-                        ].get(
-                            "stderr",
-                            "",
-                        )
-                    )
-
-                    return_code = (
-                        execution_result[
-                            "output"
-                        ].get(
-                            "return_code",
-                            -1,
-                        )
-                    )
-
-            # =================================================
-            # FINAL OUTPUT
-            # =================================================
 
             return {
 
@@ -773,9 +642,6 @@ Context Artifacts:
                 "requirements":
                     requirements,
 
-                "runtime_repairs":
-                    runtime_repairs,
-
                 "api_implementations":
                     api_implementations,
 
@@ -785,31 +651,9 @@ Context Artifacts:
                 "deployment_configs":
                     deployment_configs,
 
-                "execution_validation": {
-
-                    "stdout":
-                        stdout,
-
-                    "stderr":
-                        stderr,
-
-                    "return_code":
-                        return_code,
-
-                    "success":
-                        execution_result.get(
-                            "success",
-                            False,
-                        ) if execution_result else False,
-                },
-
                 "reasoning":
                     reasoning,
             }
-
-        # ====================================================
-        # ERROR HANDLING
-        # ====================================================
 
         except Exception as e:
 

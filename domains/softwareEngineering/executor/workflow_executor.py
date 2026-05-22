@@ -72,7 +72,7 @@ from domains.softwareEngineering.agents.aggregator_agent import (
 # TOOLS
 # ============================================================
 
-from domains.softwareEngineering.tools.tool_executor import (
+from core.tools.tool_executor import (
     ToolExecutor,
 )
 
@@ -99,7 +99,7 @@ from core.memory.artifacts import (
 # SUPERVISOR TYPES
 # ============================================================
 
-from domains.softwareEngineering.supervisor.software_supervisor import (
+from domains.softwareEngineering.supervisor.softwareEngineeringSupervisor import (
     WorkflowStep,
 )
 
@@ -107,7 +107,7 @@ from domains.softwareEngineering.supervisor.software_supervisor import (
 # RUNTIME SYSTEMS
 # ============================================================
 
-from domains.softwareEngineering.runtime.runtime_validator import (
+from core.runtime.runtime_validator import (
     RuntimeValidator,
 )
 
@@ -115,7 +115,7 @@ from core.runtime.deterministic_debugger import (
     DeterministicDebugger,
 )
 
-from domains.softwareEngineering.runtime.retry_policy import (
+from core.runtime.retry_policy import (
     RetryPolicy,
 )
 

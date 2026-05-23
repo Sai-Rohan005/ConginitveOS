@@ -111,7 +111,7 @@ class CitationAgent:
 
             "GOOGLE_MODEL",
 
-            "gemini-2.0-flash",
+            "gemini-1.5-flash",
         )
 
         self.llm = ChatGoogleGenerativeAI(

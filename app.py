@@ -1,19 +1,33 @@
 # app.py
 
 """
-CognitiveOS - Autonomous Runtime Dashboard
+CognitiveOS - Autonomous Cognitive Runtime
 ---------------------------------------------------------
 
+UPDATED ENTRYPOINT ARCHITECTURE
+
+app.py
+    ↓
+MasterOrchestrator
+    ↓
+DomainRouter
+    ↓
+DomainSupervisor
+    ↓
+WorkflowExecutor
+    ↓
+Agents + Skills
+
 Responsibilities:
-- provide UI for CognitiveOS
-- visualize execution lifecycle
-- display runtime cognition
-- render generated repositories
-- show execution timeline
-- display runtime validation
-- show patch history
-- render artifacts
-- display reflection insights
+- provide runtime dashboard
+- visualize cognition lifecycle
+- visualize orchestration
+- display routing
+- display supervisors
+- display runtime execution
+- display artifacts
+- show reflection + quality
+- support multi-domain execution
 
 Run:
 
@@ -28,6 +42,7 @@ import zipfile
 import asyncio
 import warnings
 import logging
+
 from datetime import datetime
 
 import streamlit as st
@@ -44,7 +59,9 @@ os.environ[
     "TOKENIZERS_PARALLELISM"
 ] = "false"
 
-warnings.filterwarnings("ignore")
+warnings.filterwarnings(
+    "ignore"
+)
 
 logging.getLogger(
     "transformers"
@@ -59,11 +76,11 @@ logging.getLogger(
 ).setLevel(logging.ERROR)
 
 # ============================================================
-# IMPORT COGNITIVE GRAPH
+# MASTER ORCHESTRATOR
 # ============================================================
 
-from core.cognitive_graph import (
-    CognitiveGraph,
+from core.orchestration.master_orchestration import (
+    MasterOrchestrator,
 )
 
 # ============================================================
@@ -97,7 +114,7 @@ st.title(
 
 st.markdown(
     """
-Autonomous Software Engineering Runtime
+Autonomous Multi-Domain Cognitive Runtime
 """
 )
 
@@ -138,12 +155,29 @@ with st.sidebar:
     st.markdown("---")
 
     st.subheader(
-        "Domains"
+        "Execution Strategy"
+    )
+
+    enable_multi_domain = st.checkbox(
+
+        "Enable Multi-Domain Execution",
+
+        value=False,
+    )
+
+    st.markdown("---")
+
+    st.subheader(
+        "Available Domains"
     )
 
     st.markdown(
         """
-- Software Engineering
+- AI Engineering
+- CyberSecurity
+- Data Science
+- DevOps
+- Research
 """
     )
 
@@ -171,15 +205,18 @@ query = st.text_area(
 
     "Enter your task",
 
-    height=180,
+    height=200,
 
     placeholder="""
-Example:
+Examples:
 
-Build a scalable FastAPI backend
-for real-time chat with JWT auth,
-Redis caching, Docker deployment,
-and websocket support.
+1. Build scalable RAG pipeline using Llama and ChromaDB
+
+2. Train fraud detection model and deploy on Kubernetes
+
+3. Perform vulnerability analysis on JWT authentication
+
+4. Generate literature review on multi-agent systems
 """,
 )
 
@@ -209,26 +246,28 @@ if execute_button:
         st.stop()
 
     # ========================================================
-    # GRAPH
+    # ORCHESTRATOR
     # ========================================================
 
-    graph = CognitiveGraph()
+    orchestrator = (
+        MasterOrchestrator()
+    )
 
     # ========================================================
-    # EXECUTION LIFECYCLE UI
+    # EXECUTION STATUS UI
     # ========================================================
 
     st.markdown("---")
 
     st.subheader(
-        "Execution Lifecycle"
+        "Cognitive Runtime Lifecycle"
     )
 
-    planner_status = st.empty()
+    routing_status = st.empty()
 
     supervisor_status = st.empty()
 
-    executor_status = st.empty()
+    execution_status = st.empty()
 
     reflection_status = st.empty()
 
@@ -242,52 +281,59 @@ if execute_button:
 
     async def run_execution():
 
-        planner_status.info(
-            "🧠 Planning..."
+        routing_status.info(
+            "🧭 Routing Query..."
         )
 
         supervisor_status.info(
-            "🧩 Supervisor Initializing..."
+            "🧩 Initializing Supervisor..."
         )
 
-        executor_status.info(
-            "⚙️ Runtime Executor Starting..."
+        execution_status.info(
+            "⚙️ Executing Workflow..."
         )
 
         reflection_status.info(
-            "🔍 Reflection Waiting..."
+            "🔍 Reflection Pending..."
         )
 
         aggregation_status.info(
-            "📦 Aggregation Waiting..."
+            "📦 Aggregating Outputs..."
         )
 
         runtime_status.info(
-            "🚀 Runtime Waiting..."
+            "🚀 Runtime Initializing..."
         )
 
         # ====================================================
-        # EXECUTE GRAPH
+        # EXECUTION
         # ====================================================
 
-        result = await graph.execute(
-            query
+        result = await (
+
+            orchestrator.execute(
+
+                query=query,
+
+                enable_multi_domain=
+                    enable_multi_domain,
+            )
         )
 
         # ====================================================
-        # STATUS COMPLETE
+        # COMPLETE STATUS
         # ====================================================
 
-        planner_status.success(
-            "✓ Planning Complete"
+        routing_status.success(
+            "✓ Routing Complete"
         )
 
         supervisor_status.success(
-            "✓ Workflow Generated"
+            "✓ Supervisor Ready"
         )
 
-        executor_status.success(
-            "✓ Runtime Execution Complete"
+        execution_status.success(
+            "✓ Workflow Executed"
         )
 
         reflection_status.success(
@@ -295,11 +341,11 @@ if execute_button:
         )
 
         aggregation_status.success(
-            "✓ Aggregation Complete"
+            "✓ Outputs Aggregated"
         )
 
         runtime_status.success(
-            "✓ Runtime Validation Complete"
+            "✓ Runtime Complete"
         )
 
         return result
@@ -314,15 +360,45 @@ if execute_button:
         "CognitiveOS Running..."
     ):
 
-        runtime_state = asyncio.run(
-            run_execution()
+        orchestration_result = (
+            asyncio.run(
+                run_execution()
+            )
         )
 
     end_time = datetime.now()
 
     total_execution_time = (
+
         end_time - start_time
+
     ).total_seconds()
+
+    # ========================================================
+    # FAILURE
+    # ========================================================
+
+    if not orchestration_result.success:
+
+        st.error(
+            "Execution Failed"
+        )
+
+        st.exception(
+
+            orchestration_result
+            .output
+        )
+
+        st.stop()
+
+    # ========================================================
+    # OUTPUT
+    # ========================================================
+
+    output = (
+        orchestration_result.output
+    )
 
     # ========================================================
     # STORE HISTORY
@@ -335,32 +411,95 @@ if execute_button:
             "query":
                 query,
 
-            "result":
-                runtime_state.final_output,
+            "output":
+                output,
         }
     )
 
     # ========================================================
-    # EXECUTION RESULT
-    # ========================================================
-
-    execution_result = (
-        runtime_state.execution_result
-    )
-
-    # ========================================================
-    # FINAL RESPONSE
+    # HEADER
     # ========================================================
 
     st.markdown("---")
 
     st.header(
-        "Final Response"
+        "Execution Result"
     )
 
-    st.markdown(
-        runtime_state.final_output
+    # ========================================================
+    # MODE
+    # ========================================================
+
+    st.subheader(
+        "Execution Mode"
     )
+
+    st.info(
+        output.get(
+            "mode",
+            "single_domain",
+        )
+    )
+
+    # ========================================================
+    # DOMAIN
+    # ========================================================
+
+    if output.get("mode") == "single_domain":
+
+        st.subheader(
+            "Selected Domain"
+        )
+
+        st.success(
+
+            output.get(
+                "selected_domain",
+                "unknown",
+            )
+        )
+
+        st.subheader(
+            "Routing Confidence"
+        )
+
+        st.metric(
+
+            "Confidence",
+
+            round(
+
+                output.get(
+                    "routing_confidence",
+                    0.0,
+                ),
+
+                2,
+            ),
+        )
+
+    # ========================================================
+    # MULTI DOMAIN
+    # ========================================================
+
+    else:
+
+        st.subheader(
+            "Multi-Domain Execution"
+        )
+
+        domains = output.get(
+            "domain_outputs",
+            [],
+        )
+
+        for domain_result in domains:
+
+            st.success(
+
+                f"{domain_result['domain']} "
+                f"✓"
+            )
 
     # ========================================================
     # EXECUTION METRICS
@@ -372,7 +511,7 @@ if execute_button:
         "Runtime Metrics"
     )
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
 
@@ -385,330 +524,257 @@ if execute_button:
 
     with col2:
 
+        workflow_size = 0
+
+        if (
+
+            output.get("mode")
+            == "single_domain"
+
+        ):
+
+            workflow_size = (
+
+                output
+                .get(
+                    "supervision",
+                    {},
+                )
+                .get(
+                    "workflow_size",
+                    0,
+                )
+            )
+
         st.metric(
 
-            "Artifacts",
+            "Workflow Steps",
 
-            len(
-                execution_result.get(
-                    "artifacts",
-                    [],
-                )
-            ),
+            workflow_size,
         )
 
     with col3:
 
         st.metric(
 
-            "Logs",
+            "Multi Domain",
 
-            len(
-                execution_result.get(
-                    "execution_logs",
-                    [],
-                )
+            str(
+                enable_multi_domain
             ),
         )
 
-    with col4:
+    # ========================================================
+    # SINGLE DOMAIN OUTPUT
+    # ========================================================
 
-        runtime_health = (
-            execution_result.get(
-                "runtime_health_score",
-                "medium",
-            )
+    if output.get("mode") == "single_domain":
+
+        execution = output.get(
+            "execution",
+            {},
         )
 
-        st.metric(
-
-            "Runtime Health",
-
-            runtime_health,
+        execution_output = execution.get(
+            "output",
+            {},
         )
 
-    # ========================================================
-    # EXECUTION TIMELINE
-    # ========================================================
+        # ====================================================
+        # EXECUTION TRACE
+        # ====================================================
 
-    st.markdown("---")
+        st.markdown("---")
 
-    st.subheader(
-        "Execution Timeline"
-    )
-
-    timeline = execution_result.get(
-        "execution_timeline",
-        [],
-    )
-
-    if timeline:
-
-        for event in timeline:
-
-            event_type = event.get(
-                "event",
-                ""
-            )
-
-            if "failed" in event_type:
-
-                st.error(event)
-
-            elif "runtime_failure" in event_type:
-
-                st.warning(event)
-
-            elif "completed" in event_type:
-
-                st.success(event)
-
-            else:
-
-                st.info(event)
-
-    else:
-
-        st.info(
-            "No execution timeline available."
+        st.subheader(
+            "Execution Trace"
         )
 
-    # ========================================================
-    # GENERATED FILES
-    # ========================================================
+        trace = execution_output.get(
+            "execution_trace",
+            [],
+        )
 
-    st.markdown("---")
+        if trace:
 
-    st.subheader(
-        "Generated Repository"
-    )
+            for step in trace:
 
-    generated_files = execution_result.get(
-        "generated_files",
-        [],
-    )
-
-    if generated_files:
-
-        for file in generated_files:
-
-            file_path = file.get(
-                "path",
-                "unknown.py"
-            )
-
-            content = file.get(
-                "content",
-                ""
-            )
-
-            language = "python"
-
-            if file_path.endswith(".json"):
-
-                language = "json"
-
-            elif file_path.endswith(".yml"):
-
-                language = "yaml"
-
-            elif file_path.endswith(".md"):
-
-                language = "markdown"
-
-            with st.expander(
-                file_path,
-                expanded=False,
-            ):
-
-                st.code(
-                    content,
-                    language=language,
+                success = step.get(
+                    "success",
+                    False,
                 )
 
-    else:
+                if success:
 
-        st.info(
-            "No generated files available."
-        )
+                    st.success(step)
 
-    # ========================================================
-    # WORKSPACE TREE
-    # ========================================================
+                else:
 
-    st.markdown("---")
+                    st.error(step)
 
-    with st.expander(
-        "Workspace Tree",
-        expanded=False,
-    ):
+        else:
 
-        workspace_snapshot = (
-            execution_result.get(
-                "workspace_snapshot",
-                [],
+            st.info(
+                "No execution trace available."
             )
+
+        # ====================================================
+        # AGENT OUTPUTS
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "Agent Outputs"
         )
 
-        st.json(
-            workspace_snapshot
-        )
+        agent_outputs = (
 
-    # ========================================================
-    # RUNTIME VALIDATION
-    # ========================================================
-
-    st.markdown("---")
-
-    with st.expander(
-        "Runtime Validation",
-        expanded=False,
-    ):
-
-        runtime_validation = (
-            execution_result.get(
-                "runtime_validation",
+            execution_output.get(
+                "agent_outputs",
                 {},
             )
         )
 
-        stdout = runtime_validation.get(
-            "stdout",
-            ""
+        if agent_outputs:
+
+            for agent_name, agent_output in (
+                agent_outputs.items()
+            ):
+
+                with st.expander(
+                    agent_name,
+                    expanded=False,
+                ):
+
+                    st.json(
+                        agent_output
+                    )
+
+        # ====================================================
+        # TELEMETRY
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "Execution Telemetry"
         )
 
-        stderr = runtime_validation.get(
-            "stderr",
-            ""
+        telemetry = execution_output.get(
+            "telemetry",
+            {},
         )
 
-        return_code = (
-            runtime_validation.get(
-                "return_code",
-                -1,
+        st.json(
+            telemetry
+        )
+
+        # ====================================================
+        # ARTIFACTS
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "Artifacts"
+        )
+
+        artifacts = execution_output.get(
+            "artifacts",
+            [],
+        )
+
+        if artifacts:
+
+            st.json(
+                artifacts
             )
-        )
-
-        st.subheader(
-            "Return Code"
-        )
-
-        st.write(return_code)
-
-        st.subheader(
-            "STDOUT"
-        )
-
-        st.code(stdout)
-
-        st.subheader(
-            "STDERR"
-        )
-
-        if stderr:
-
-            st.error(stderr)
 
         else:
 
-            st.success(
-                "No runtime errors detected."
+            st.info(
+                "No artifacts generated."
             )
 
-    # ========================================================
-    # PATCH HISTORY
-    # ========================================================
+        # ====================================================
+        # REFLECTION
+        # ====================================================
 
-    st.markdown("---")
+        st.markdown("---")
 
-    with st.expander(
-        "Patch History",
-        expanded=False,
-    ):
-
-        patch_history = (
-            execution_result.get(
-                "patch_history",
-                [],
-            )
+        st.subheader(
+            "Reflection Summary"
         )
 
-        if patch_history:
+        reflection = execution_output.get(
+            "reflection",
+            "",
+        )
 
-            for patch in patch_history:
+        st.info(
+            reflection
+        )
 
-                st.warning(
-                    patch
+        # ====================================================
+        # DEBUG
+        # ====================================================
+
+        st.markdown("---")
+
+        st.subheader(
+            "Debug Validation"
+        )
+
+        debug = execution_output.get(
+            "debug",
+            {},
+        )
+
+        st.json(debug)
+
+    # ========================================================
+    # MULTI DOMAIN OUTPUT
+    # ========================================================
+
+    else:
+
+        st.markdown("---")
+
+        st.subheader(
+            "Multi-Domain Outputs"
+        )
+
+        domain_outputs = output.get(
+            "domain_outputs",
+            [],
+        )
+
+        for domain_result in (
+            domain_outputs
+        ):
+
+            with st.expander(
+
+                domain_result[
+                    "domain"
+                ],
+
+                expanded=False,
+            ):
+
+                st.json(
+                    domain_result
                 )
 
-        else:
-
-            st.success(
-                "No patches applied."
-            )
-
     # ========================================================
-    # ARTIFACTS
-    # ========================================================
-
-    st.markdown("---")
-
-    with st.expander(
-        "Artifacts",
-        expanded=False,
-    ):
-
-        st.json(
-            execution_result.get(
-                "artifacts",
-                [],
-            )
-        )
-
-    # ========================================================
-    # EXECUTION LOGS
-    # ========================================================
-
-    st.markdown("---")
-
-    with st.expander(
-        "Execution Logs",
-        expanded=False,
-    ):
-
-        st.json(
-            execution_result.get(
-                "execution_logs",
-                [],
-            )
-        )
-
-    # ========================================================
-    # REFLECTION NOTES
-    # ========================================================
-
-    st.markdown("---")
-
-    with st.expander(
-        "Reflection Notes",
-        expanded=False,
-    ):
-
-        st.json(
-            execution_result.get(
-                "reflection_notes",
-                [],
-            )
-        )
-
-    # ========================================================
-    # DOWNLOAD GENERATED REPOSITORY
+    # DOWNLOAD REPOSITORY
     # ========================================================
 
     st.markdown("---")
 
     st.subheader(
-        "Download Repository"
+        "Download Workspace"
     )
 
     zip_buffer = io.BytesIO()
@@ -741,26 +807,32 @@ if execute_button:
                         file,
                     )
 
-                    archive_name = os.path.relpath(
-                        file_path,
-                        workspace_path,
+                    archive_name = (
+                        os.path.relpath(
+
+                            file_path,
+
+                            workspace_path,
+                        )
                     )
 
                     zip_file.write(
+
                         file_path,
+
                         archive_name,
                     )
 
         st.download_button(
 
             label=
-                "⬇ Download Repository",
+                "⬇ Download Workspace",
 
             data=
                 zip_buffer.getvalue(),
 
             file_name=
-                "cognitiveos_project.zip",
+                "cognitiveos_workspace.zip",
 
             mime=
                 "application/zip",
@@ -775,5 +847,5 @@ if execute_button:
 st.markdown("---")
 
 st.caption(
-    "CognitiveOS • Autonomous Software Engineering Runtime"
+    "CognitiveOS • Autonomous Multi-Domain Cognitive Runtime"
 )

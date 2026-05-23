@@ -1,25 +1,26 @@
-# domains/cybersecurity/supervisor/cybersecurity_supervisor.py
+# domains/cybersecurity/supervisor/cybersecurity_supervisory.py
 
 """
-CognitiveOS - Cybersecurity Supervisor
+CognitiveOS - CyberSecurity Supervisor
 ---------------------------------------------------------
 
 Responsibilities:
 - orchestrate cybersecurity workflows
-- assign security agents
-- determine execution ordering
-- attach runtime skills
-- minimize unnecessary LLM calls
-- maximize deterministic execution
-- coordinate security cognition
+- coordinate security agents
+- manage vulnerability analysis
+- coordinate penetration testing
+- optimize exploit analysis
+- manage authentication security reviews
+- enable deterministic cyber cognition
+- support autonomous security auditing
 
 Architecture:
 
 Supervisor
     ↓
-Security Agents
+CyberSecurity Agents
     ↓
-Security Skills
+Skills
     ↓
 Core Runtime
 """
@@ -82,7 +83,7 @@ class WorkflowStep:
 
 
 @dataclass
-class CybersecuritySupervisorResult:
+class CyberSecuritySupervisorResult:
 
     orchestration_strategy: str
 
@@ -105,10 +106,10 @@ class CybersecuritySupervisorResult:
 # ============================================================
 
 
-class CybersecuritySupervisor:
+class CyberSecuritySupervisor:
 
     """
-    Deterministic Cybersecurity Supervisor.
+    Deterministic CyberSecurity Supervisor.
     """
 
     def __init__(self):
@@ -119,13 +120,13 @@ class CybersecuritySupervisor:
 
         self.available_agents = [
 
-            "authsecurity_agent",
-
-            "exploit_analysis_agent",
+            "vuln_agent",
 
             "pentest_agent",
 
-            "vuln_agent",
+            "exploit_analysis_agent",
+
+            "authsecurity_agent",
         ]
 
         # ====================================================
@@ -136,13 +137,15 @@ class CybersecuritySupervisor:
 
             "network_security_skill",
 
-            "jwt_security_skill",
+            "auth_analysis_skill",
 
-            "owasp_skill",
+            "vulnerability_scanning_skill",
 
-            "api_security_skill",
+            "exploit_analysis_skill",
 
-            "threat_modeling_skill",
+            "penetration_testing_skill",
+
+            "security_audit_skill",
         ]
 
     # ========================================================
@@ -152,7 +155,7 @@ class CybersecuritySupervisor:
     def supervise(
         self,
         query: str,
-    ) -> CybersecuritySupervisorResult:
+    ) -> CyberSecuritySupervisorResult:
 
         query_lower = query.lower()
 
@@ -161,7 +164,7 @@ class CybersecuritySupervisor:
         step_id = 1
 
         # ====================================================
-        # AUTH SECURITY
+        # VULNERABILITY ANALYSIS
         # ====================================================
 
         if any(
@@ -170,61 +173,17 @@ class CybersecuritySupervisor:
 
             for keyword in [
 
-                "jwt",
+                "vulnerability",
 
-                "oauth",
+                "security scan",
 
-                "authentication",
+                "cve",
 
-                "authorization",
+                "security audit",
 
-                "session",
-
-                "token",
+                "weakness",
             ]
         ):
-
-            # ================================================
-            # AUTH SECURITY
-            # ================================================
-
-            workflow_steps.append(
-
-                WorkflowStep(
-
-                    step_id=step_id,
-
-                    agent="authsecurity_agent",
-
-                    task=(
-                        "Analyze authentication "
-                        "architecture and JWT security"
-                    ),
-
-                    expected_output=(
-                        "Authentication security report"
-                    ),
-
-                    required_skills=[
-
-                        "jwt_security_skill",
-
-                        "api_security_skill",
-                    ],
-
-                    runtime_backend="deterministic",
-
-                    deterministic_execution=True,
-                )
-            )
-
-            auth_step = step_id
-
-            step_id += 1
-
-            # ================================================
-            # VULNERABILITY ANALYSIS
-            # ================================================
 
             workflow_steps.append(
 
@@ -235,21 +194,19 @@ class CybersecuritySupervisor:
                     agent="vuln_agent",
 
                     task=(
-                        "Analyze vulnerabilities "
-                        "in authentication flow"
+                        "Perform vulnerability "
+                        "assessment"
                     ),
 
-                    dependencies=[
-                        auth_step
-                    ],
-
                     expected_output=(
-                        "Vulnerability assessment"
+                        "Vulnerability report"
                     ),
 
                     required_skills=[
 
-                        "owasp_skill",
+                        "vulnerability_scanning_skill",
+
+                        "security_audit_skill",
                     ],
 
                     runtime_backend="deterministic",
@@ -262,10 +219,6 @@ class CybersecuritySupervisor:
 
             step_id += 1
 
-            # ================================================
-            # EXPLOIT ANALYSIS
-            # ================================================
-
             workflow_steps.append(
 
                 WorkflowStep(
@@ -276,7 +229,7 @@ class CybersecuritySupervisor:
 
                     task=(
                         "Analyze exploitability "
-                        "and attack vectors"
+                        "of detected vulnerabilities"
                     ),
 
                     dependencies=[
@@ -289,12 +242,12 @@ class CybersecuritySupervisor:
 
                     required_skills=[
 
-                        "threat_modeling_skill",
+                        "exploit_analysis_skill",
                     ],
 
                     runtime_backend="deterministic",
 
-                    deterministic_execution=False,
+                    deterministic_execution=True,
                 )
             )
 
@@ -310,57 +263,15 @@ class CybersecuritySupervisor:
 
                 "pentest",
 
-                "penetration",
-
-                "attack",
+                "penetration test",
 
                 "red team",
 
                 "offensive security",
+
+                "attack simulation",
             ]
         ):
-
-            # ================================================
-            # VULNERABILITY ANALYSIS
-            # ================================================
-
-            workflow_steps.append(
-
-                WorkflowStep(
-
-                    step_id=step_id,
-
-                    agent="vuln_agent",
-
-                    task=(
-                        "Identify application "
-                        "and infrastructure vulnerabilities"
-                    ),
-
-                    expected_output=(
-                        "Security assessment"
-                    ),
-
-                    required_skills=[
-
-                        "owasp_skill",
-
-                        "network_security_skill",
-                    ],
-
-                    runtime_backend="deterministic",
-
-                    deterministic_execution=True,
-                )
-            )
-
-            vuln_step = step_id
-
-            step_id += 1
-
-            # ================================================
-            # PENTEST
-            # ================================================
 
             workflow_steps.append(
 
@@ -371,38 +282,30 @@ class CybersecuritySupervisor:
                     agent="pentest_agent",
 
                     task=(
-                        "Simulate penetration "
+                        "Perform penetration "
                         "testing workflow"
                     ),
 
-                    dependencies=[
-                        vuln_step
-                    ],
-
                     expected_output=(
-                        "Pentest report"
+                        "Penetration test report"
                     ),
 
                     required_skills=[
 
-                        "network_security_skill",
+                        "penetration_testing_skill",
 
-                        "api_security_skill",
+                        "network_security_skill",
                     ],
 
                     runtime_backend="deterministic",
 
-                    deterministic_execution=False,
+                    deterministic_execution=True,
                 )
             )
 
             pentest_step = step_id
 
             step_id += 1
-
-            # ================================================
-            # EXPLOIT ANALYSIS
-            # ================================================
 
             workflow_steps.append(
 
@@ -413,8 +316,8 @@ class CybersecuritySupervisor:
                     agent="exploit_analysis_agent",
 
                     task=(
-                        "Analyze exploit chains "
-                        "and lateral movement"
+                        "Analyze attack paths "
+                        "and exploit chains"
                     ),
 
                     dependencies=[
@@ -427,24 +330,124 @@ class CybersecuritySupervisor:
 
                     required_skills=[
 
-                        "threat_modeling_skill",
+                        "exploit_analysis_skill",
                     ],
 
                     runtime_backend="deterministic",
 
-                    deterministic_execution=False,
+                    deterministic_execution=True,
                 )
             )
 
         # ====================================================
-        # GENERAL SECURITY AUDIT
+        # AUTHENTICATION SECURITY
+        # ====================================================
+
+        elif any(
+
+            keyword in query_lower
+
+            for keyword in [
+
+                "authentication",
+
+                "authorization",
+
+                "jwt",
+
+                "oauth",
+
+                "session security",
+
+                "identity",
+            ]
+        ):
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent="authsecurity_agent",
+
+                    task=(
+                        "Analyze authentication "
+                        "and authorization security"
+                    ),
+
+                    expected_output=(
+                        "Authentication security report"
+                    ),
+
+                    required_skills=[
+
+                        "auth_analysis_skill",
+
+                        "security_audit_skill",
+                    ],
+
+                    runtime_backend="deterministic",
+
+                    deterministic_execution=True,
+                )
+            )
+
+        # ====================================================
+        # EXPLOIT ANALYSIS
+        # ====================================================
+
+        elif any(
+
+            keyword in query_lower
+
+            for keyword in [
+
+                "exploit",
+
+                "payload",
+
+                "rce",
+
+                "privilege escalation",
+
+                "attack vector",
+            ]
+        ):
+
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent="exploit_analysis_agent",
+
+                    task=(
+                        "Analyze exploit vectors "
+                        "and attack chains"
+                    ),
+
+                    expected_output=(
+                        "Exploit analysis"
+                    ),
+
+                    required_skills=[
+
+                        "exploit_analysis_skill",
+                    ],
+
+                    runtime_backend="deterministic",
+
+                    deterministic_execution=True,
+                )
+            )
+
+        # ====================================================
+        # GENERAL CYBERSECURITY
         # ====================================================
 
         else:
-
-            # ================================================
-            # VULNERABILITY ASSESSMENT
-            # ================================================
 
             workflow_steps.append(
 
@@ -455,21 +458,19 @@ class CybersecuritySupervisor:
                     agent="vuln_agent",
 
                     task=(
-                        "Perform comprehensive "
-                        "security vulnerability assessment"
+                        "Perform security "
+                        "vulnerability assessment"
                     ),
 
                     expected_output=(
-                        "Security audit report"
+                        "Vulnerability assessment"
                     ),
 
                     required_skills=[
 
-                        "owasp_skill",
+                        "vulnerability_scanning_skill",
 
-                        "api_security_skill",
-
-                        "network_security_skill",
+                        "security_audit_skill",
                     ],
 
                     runtime_backend="deterministic",
@@ -482,10 +483,6 @@ class CybersecuritySupervisor:
 
             step_id += 1
 
-            # ================================================
-            # AUTH SECURITY
-            # ================================================
-
             workflow_steps.append(
 
                 WorkflowStep(
@@ -495,8 +492,8 @@ class CybersecuritySupervisor:
                     agent="authsecurity_agent",
 
                     task=(
-                        "Validate authentication "
-                        "and authorization security"
+                        "Review authentication "
+                        "security posture"
                     ),
 
                     dependencies=[
@@ -504,12 +501,12 @@ class CybersecuritySupervisor:
                     ],
 
                     expected_output=(
-                        "Authentication security analysis"
+                        "Auth security review"
                     ),
 
                     required_skills=[
 
-                        "jwt_security_skill",
+                        "auth_analysis_skill",
                     ],
 
                     runtime_backend="deterministic",
@@ -522,9 +519,41 @@ class CybersecuritySupervisor:
 
             step_id += 1
 
-            # ================================================
-            # EXPLOIT ANALYSIS
-            # ================================================
+            workflow_steps.append(
+
+                WorkflowStep(
+
+                    step_id=step_id,
+
+                    agent="pentest_agent",
+
+                    task=(
+                        "Perform penetration "
+                        "testing analysis"
+                    ),
+
+                    dependencies=[
+                        auth_step
+                    ],
+
+                    expected_output=(
+                        "Pentest findings"
+                    ),
+
+                    required_skills=[
+
+                        "penetration_testing_skill",
+                    ],
+
+                    runtime_backend="deterministic",
+
+                    deterministic_execution=True,
+                )
+            )
+
+            pentest_step = step_id
+
+            step_id += 1
 
             workflow_steps.append(
 
@@ -535,26 +564,26 @@ class CybersecuritySupervisor:
                     agent="exploit_analysis_agent",
 
                     task=(
-                        "Analyze exploitability "
-                        "and attack surface"
+                        "Analyze exploit chains "
+                        "and security risks"
                     ),
 
                     dependencies=[
-                        auth_step
+                        pentest_step
                     ],
 
                     expected_output=(
-                        "Exploit analysis"
+                        "Exploit intelligence"
                     ),
 
                     required_skills=[
 
-                        "threat_modeling_skill",
+                        "exploit_analysis_skill",
                     ],
 
                     runtime_backend="deterministic",
 
-                    deterministic_execution=False,
+                    deterministic_execution=True,
                 )
             )
 
@@ -573,11 +602,11 @@ class CybersecuritySupervisor:
         # RETURN
         # ====================================================
 
-        return CybersecuritySupervisorResult(
+        return CyberSecuritySupervisorResult(
 
             orchestration_strategy=(
 
-                "Deterministic Cybersecurity "
+                "Deterministic CyberSecurity "
                 "Workflow Orchestration"
             ),
 
@@ -617,7 +646,7 @@ class CybersecuritySupervisor:
                 ),
 
                 "estimated_llm_calls":
-                    3,
+                    len(workflow_steps),
 
                 "deterministic_runtime":
                     True,
@@ -625,12 +654,12 @@ class CybersecuritySupervisor:
         )
 
     # ========================================================
-    # EXPORT
+    # EXPORT SUPERVISION
     # ========================================================
 
     def export_supervision(
         self,
-        result: CybersecuritySupervisorResult,
+        result: CyberSecuritySupervisorResult,
     ) -> Dict[str, Any]:
 
         return {

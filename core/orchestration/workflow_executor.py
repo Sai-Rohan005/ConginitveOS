@@ -535,13 +535,8 @@ class WorkflowExecutor:
             # DEBUG VALIDATION
             # =================================================
 
-            debug_result = (
-                self.debugger
-                .validate_execution(
-
-                    outputs=
-                        memory.agent_outputs
-                )
+            debug_result = self.debugger.validate_execution(
+                execution_results=memory.agent_outputs
             )
 
             # =================================================

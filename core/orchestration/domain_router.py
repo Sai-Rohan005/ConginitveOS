@@ -1,582 +1,252 @@
-# core/orchestration/domain_router.py
-
 """
-CognitiveOS - Domain Router
+CognitiveOS - Domain Router (LLM-Based)
 ---------------------------------------------------------
 
-Responsibilities:
-- detect appropriate domain
-- route queries intelligently
-- perform keyword + semantic routing
-- support multi-domain orchestration
-- enable fallback routing
-- minimize routing ambiguity
-- provide routing confidence
-- support autonomous cognition
-
-Architecture:
-
-Master Orchestrator
-        ↓
-Domain Router
-        ↓
-Domain Registry
-        ↓
-Domain Supervisor
+Replaced deterministic keyword routing with LLM-driven semantic routing.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import traceback
+from typing import Dict, Any, List, Tuple
 
-from typing import (
-    Dict,
-    Any,
-    List,
-    Tuple,
+import dotenv
+from langchain.messages import HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from core.orchestration.domain_registry import get_domain_registry
+dotenv.load_dotenv()
+
+api_key = os.getenv(
+    "GOOGLE_API_KEY"
 )
-
-# ============================================================
-# DOMAIN REGISTRY
-# ============================================================
-
-from core.orchestration.domain_registry import (
-    get_domain_registry,
-)
-
-# ============================================================
-# DOMAIN ROUTER
-# ============================================================
-
 
 class DomainRouter:
-
     """
-    Intelligent domain routing engine.
+    LLM-powered domain routing engine.
     """
 
     def __init__(self):
 
-        self.domain_registry = (
-            get_domain_registry()
-        )
+        self.domain_registry = get_domain_registry()
 
         # ====================================================
         # ROUTER CONFIG
         # ====================================================
 
         self.minimum_confidence = 0.15
-
         self.enable_multi_domain = True
+        self.default_domain = "research"
 
-        self.default_domain = (
-            "research"
+        # ⚠️ You must inject your LLM client here
+        # expected interface: self.llm.generate(prompt: str) -> str
+        self.model = os.getenv(
+
+            "GOOGLE_MODEL",
+
+            "gemini-2.0-flash",
+        )
+
+        self.llm = ChatGoogleGenerativeAI(
+
+            model=self.model,
+
+            google_api_key=api_key,
+
+            temperature=0.1,
         )
 
     # ========================================================
-    # MAIN ROUTING
+    # LLM CORE ROUTER
     # ========================================================
 
-    def route(
-        self,
-        query: str,
-    ) -> Dict[str, Any]:
+    def _llm_route(self, query: str) -> Dict[str, Any]:
+        """
+        Uses LLM to decide best domain(s).
+        """
+
+        domains = self.domain_registry.list_domains()
+
+        domain_descriptions = {
+            d: self.domain_registry.get_domain_metadata(d).get("description", "")
+            for d in domains
+        }
+
+        prompt = f"""
+You are an intelligent domain routing system.
+
+Your job:
+Select the BEST domain(s) for the user query.
+
+AVAILABLE DOMAINS:
+{json.dumps(domain_descriptions, indent=2)}
+
+RULES:
+- Choose 1 primary domain
+- Optionally choose secondary domains if relevant
+- Return ONLY valid JSON
+- Confidence must be 0.0 - 1.0
+
+OUTPUT FORMAT:
+{{
+  "selected_domain": "string",
+  "confidence": float,
+  "secondary_domains": ["string"]
+}}
+
+USER QUERY:
+{query}
+"""
+
+        # ====================================================
+        # LLM CALL
+        # ====================================================
+
+        if not self.llm:
+            # safe fallback if LLM not attached
+            return {
+                "selected_domain": self.default_domain,
+                "confidence": 0.1,
+                "secondary_domains": [],
+            }
+
+        response = self.llm.invoke([HumanMessage(content=prompt)]).content
 
         try:
+            return json.loads(response)
+        except Exception:
+            # fallback parse failure
+            return {
+                "selected_domain": self.default_domain,
+                "confidence": 0.1,
+                "secondary_domains": [],
+            }
 
-            query_lower = (
-                query.lower()
-            )
+    # ========================================================
+    # MAIN ROUTE (SINGLE DOMAIN)
+    # ========================================================
 
-            # ================================================
-            # SCORE DOMAINS
-            # ================================================
+    def route(self, query: str) -> Dict[str, Any]:
+        try:
+            llm_result = self._llm_route(query)
 
-            domain_scores = (
-                self._score_domains(
-                    query_lower
-                )
-            )
+            selected_domain = llm_result.get("selected_domain", self.default_domain)
+            confidence = llm_result.get("confidence", 0.2)
+            secondary_domains = llm_result.get("secondary_domains", [])
 
-            # ================================================
-            # SORT
-            # ================================================
-
-            sorted_domains = sorted(
-
-                domain_scores.items(),
-
-                key=lambda x: x[1],
-
-                reverse=True,
-            )
-
-            # ================================================
-            # NO MATCH
-            # ================================================
-
-            if not sorted_domains:
-
-                return self._fallback_route(
-                    query
-                )
-
-            # ================================================
-            # TOP DOMAIN
-            # ================================================
-
-            top_domain = (
-                sorted_domains[0]
-            )
-
-            selected_domain = (
-                top_domain[0]
-            )
-
-            confidence = (
-                top_domain[1]
-            )
-
-            # ================================================
-            # LOW CONFIDENCE
-            # ================================================
-
-            if (
-
-                confidence
-                < self.minimum_confidence
-
-            ):
-
-                return self._fallback_route(
-                    query
-                )
-
-            # ================================================
-            # MULTI DOMAIN
-            # ================================================
-
-            secondary_domains = []
-
-            if self.enable_multi_domain:
-
-                secondary_domains = (
-
-                    self._find_secondary_domains(
-
-                        sorted_domains,
-
-                        selected_domain,
-                    )
-                )
-
-            # ================================================
-            # SUPERVISOR
-            # ================================================
-
-            supervisor = (
-
-                self.domain_registry
-                .create_supervisor(
-                    selected_domain
-                )
-            )
-
-            # ================================================
-            # RESULT
-            # ================================================
+            supervisor = self.domain_registry.create_supervisor(selected_domain)
 
             return {
-
-                "success":
-                    True,
-
-                "query":
-                    query,
-
-                "selected_domain":
-                    selected_domain,
-
-                "confidence":
-                    confidence,
-
-                "secondary_domains":
-                    secondary_domains,
-
-                "supervisor":
-                    supervisor,
-
-                "domain_scores":
-                    domain_scores,
-
-                "routing_strategy":
-                    "keyword_weighted_routing",
+                "success": True,
+                "query": query,
+                "selected_domain": selected_domain,
+                "confidence": confidence,
+                "secondary_domains": secondary_domains,
+                "supervisor": supervisor,
+                "routing_strategy": "llm_semantic_routing",
             }
 
         except Exception as e:
-
             return {
-
-                "success":
-                    False,
-
-                "error":
-                    str(e),
-
-                "traceback":
-                    traceback.format_exc(),
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
             }
 
     # ========================================================
-    # SCORE DOMAINS
+    # MULTI DOMAIN ROUTE (LLM DRIVEN)
     # ========================================================
 
-    def _score_domains(
-        self,
-        query: str,
-    ) -> Dict[str, float]:
+    def multi_domain_route(self, query: str) -> Dict[str, Any]:
+        try:
+            llm_result = self._llm_route(query)
 
-        scores = {}
+            primary = llm_result.get("selected_domain", self.default_domain)
+            secondary = llm_result.get("secondary_domains", [])
 
-        # ====================================================
-        # DOMAINS
-        # ====================================================
+            # combine + deduplicate
+            domains = [primary] + [d for d in secondary if d != primary]
 
-        domains = (
+            selected_domains = []
 
-            self.domain_registry
-            .list_domains()
-        )
+            for domain in domains:
+                selected_domains.append({
+                    "domain": domain,
+                    "score": 1.0,
+                    "supervisor": self.domain_registry.create_supervisor(domain),
+                })
 
-        for domain_name in domains:
+            return {
+                "success": True,
+                "query": query,
+                "domains": selected_domains,
+                "strategy": "llm_multi_domain_routing",
+            }
 
-            keywords = (
-
-                self.domain_registry
-                .get_domain_keywords(
-                    domain_name
-                )
-            )
-
-            metadata = (
-
-                self.domain_registry
-                .get_domain_metadata(
-                    domain_name
-                )
-            )
-
-            priority = metadata.get(
-                "priority",
-                1,
-            )
-
-            score = 0.0
-
-            # ================================================
-            # KEYWORD MATCHING
-            # ================================================
-
-            for keyword in keywords:
-
-                keyword_lower = (
-                    keyword.lower()
-                )
-
-                # EXACT PHRASE
-                if keyword_lower in query:
-
-                    score += 1.0
-
-                # TOKEN OVERLAP
-                query_tokens = set(
-                    query.split()
-                )
-
-                keyword_tokens = set(
-                    keyword_lower.split()
-                )
-
-                overlap = (
-
-                    query_tokens
-                    .intersection(
-                        keyword_tokens
-                    )
-                )
-
-                if overlap:
-
-                    token_score = (
-
-                        len(overlap)
-
-                        / max(
-                            len(keyword_tokens),
-                            1,
-                        )
-                    )
-
-                    score += (
-                        token_score * 0.5
-                    )
-
-            # ================================================
-            # PRIORITY WEIGHT
-            # ================================================
-
-            score *= (
-                priority / 10
-            )
-
-            scores[
-                domain_name
-            ] = round(score, 4)
-
-        return scores
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+            }
 
     # ========================================================
-    # SECONDARY DOMAINS
+    # DOMAIN SUGGESTIONS (LLM-OPTIONAL ENHANCEMENT)
     # ========================================================
 
-    def _find_secondary_domains(
-        self,
-        sorted_domains: List[
-            Tuple[str, float]
-        ],
-        selected_domain: str,
-    ) -> List[str]:
+    def suggest_domains(self, query: str) -> List[Dict[str, Any]]:
+        try:
+            llm_result = self._llm_route(query)
 
-        secondary_domains = []
+            suggestions = []
 
-        for domain, score in (
-            sorted_domains[1:]
-        ):
+            primary = llm_result.get("selected_domain")
+            if primary:
+                meta = self.domain_registry.get_domain_metadata(primary)
+                suggestions.append({
+                    "domain": primary,
+                    "score": llm_result.get("confidence", 0.5),
+                    "description": meta.get("description", ""),
+                })
 
-            if score >= 0.5:
+            for d in llm_result.get("secondary_domains", []):
+                meta = self.domain_registry.get_domain_metadata(d)
+                suggestions.append({
+                    "domain": d,
+                    "score": 0.7,
+                    "description": meta.get("description", ""),
+                })
 
-                secondary_domains.append(
-                    domain
-                )
+            return suggestions
 
-        return secondary_domains
+        except Exception:
+            return []
 
     # ========================================================
-    # FALLBACK
+    # EXPORT STATE
     # ========================================================
 
-    def _fallback_route(
-        self,
-        query: str,
-    ) -> Dict[str, Any]:
-
-        supervisor = (
-
-            self.domain_registry
-            .create_supervisor(
-                self.default_domain
-            )
-        )
-
+    def export_state(self) -> Dict[str, Any]:
         return {
-
-            "success":
-                True,
-
-            "query":
-                query,
-
-            "selected_domain":
-                self.default_domain,
-
-            "confidence":
-                0.1,
-
-            "secondary_domains":
-                [],
-
-            "supervisor":
-                supervisor,
-
-            "routing_strategy":
-                "fallback_routing",
-        }
-
-    # ========================================================
-    # DOMAIN SUGGESTIONS
-    # ========================================================
-
-    def suggest_domains(
-        self,
-        query: str,
-    ) -> List[Dict[str, Any]]:
-
-        query_lower = (
-            query.lower()
-        )
-
-        scores = (
-            self._score_domains(
-                query_lower
-            )
-        )
-
-        sorted_scores = sorted(
-
-            scores.items(),
-
-            key=lambda x: x[1],
-
-            reverse=True,
-        )
-
-        suggestions = []
-
-        for domain, score in (
-            sorted_scores
-        ):
-
-            metadata = (
-
-                self.domain_registry
-                .get_domain_metadata(
-                    domain
-                )
-            )
-
-            suggestions.append(
-
-                {
-
-                    "domain":
-                        domain,
-
-                    "score":
-                        score,
-
-                    "description":
-
-                        metadata.get(
-                            "description",
-                            "",
-                        ),
-                }
-            )
-
-        return suggestions
-
-    # ========================================================
-    # MULTI DOMAIN ROUTE
-    # ========================================================
-
-    def multi_domain_route(
-        self,
-        query: str,
-    ) -> Dict[str, Any]:
-
-        scores = self._score_domains(
-            query.lower()
-        )
-
-        sorted_scores = sorted(
-
-            scores.items(),
-
-            key=lambda x: x[1],
-
-            reverse=True,
-        )
-
-        selected_domains = []
-
-        for domain, score in (
-            sorted_scores
-        ):
-
-            if score >= 0.5:
-
-                selected_domains.append(
-
-                    {
-
-                        "domain":
-                            domain,
-
-                        "score":
-                            score,
-
-                        "supervisor":
-
-                            self.domain_registry
-                            .create_supervisor(
-                                domain
-                            ),
-                    }
-                )
-
-        return {
-
-            "success":
-                True,
-
-            "query":
-                query,
-
-            "domains":
-                selected_domains,
-
-            "strategy":
-                "multi_domain_parallel_routing",
-        }
-
-    # ========================================================
-    # EXPORT ROUTER STATE
-    # ========================================================
-
-    def export_state(
-        self,
-    ) -> Dict[str, Any]:
-
-        return {
-
-            "minimum_confidence":
-                self.minimum_confidence,
-
-            "enable_multi_domain":
-                self.enable_multi_domain,
-
-            "default_domain":
-                self.default_domain,
-
-            "domains":
-
-                self.domain_registry
-                .export_registry(),
+            "routing_strategy": "llm_semantic",
+            "minimum_confidence": self.minimum_confidence,
+            "enable_multi_domain": self.enable_multi_domain,
+            "default_domain": self.default_domain,
+            "domains": self.domain_registry.export_registry(),
         }
 
     # ========================================================
     # HEALTHCHECK
     # ========================================================
 
-    def healthcheck(
-        self,
-    ) -> Dict[str, Any]:
-
+    def healthcheck(self) -> Dict[str, Any]:
         return {
-
-            "status":
-                "healthy",
-
-            "registered_domains":
-
-                len(
-
-                    self.domain_registry
-                    .list_domains()
-                ),
-
-            "multi_domain_enabled":
-                self.enable_multi_domain,
+            "status": "healthy",
+            "routing_mode": "llm" if self.llm else "fallback",
+            "registered_domains": len(self.domain_registry.list_domains()),
+            "multi_domain_enabled": self.enable_multi_domain,
         }
 
 
@@ -584,15 +254,8 @@ class DomainRouter:
 # GLOBAL ROUTER
 # ============================================================
 
-GLOBAL_DOMAIN_ROUTER = (
-    DomainRouter()
-)
-
-# ============================================================
-# FACTORY
-# ============================================================
+GLOBAL_DOMAIN_ROUTER = DomainRouter()
 
 
 def get_domain_router():
-
     return GLOBAL_DOMAIN_ROUTER
